@@ -150,3 +150,17 @@ interface AppActivityAcc {
 function newAcc(): AppActivityAcc {
   return { windows: [], urls: [], sampleText: [], firstSeen: null, lastSeen: null, frames: 0 };
 }
+
+export async function fetchDayActivity(
+  client: ScreenpipeClient,
+  dayKey: string,
+  timeZone: string,
+): Promise<DayDigest> {
+  const { startIso, endIso } = dayWindowUtc(dayKey, timeZone);
+  const [ocr, audio, input] = await Promise.all([
+    client.searchAll({ contentType: "ocr", startIso, endIso, minLength: 50 }),
+    client.searchAll({ contentType: "audio", startIso, endIso }),
+    client.searchAll({ contentType: "input", startIso, endIso }),
+  ]);
+  return condenseItems([...ocr, ...audio, ...input], dayKey);
+}
