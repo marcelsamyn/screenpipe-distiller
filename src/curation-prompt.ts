@@ -15,6 +15,7 @@ Write a concise Markdown document capturing only what is worth remembering beyon
 5. Consolidate. Write a synthesized narrative, not a minute-by-minute log.
 6. Honest about sparsity. If the day was light or idle, say so in one line. Never pad or invent.
 7. Exposure is not intent. "Read about X" / "watched a video on Y" — never "wants to do X" or "is planning Y".
+8. Don't merge concurrent contexts. A single day may span multiple projects or clients worked on in parallel. Attribute a fact to a specific named project/client ONLY when the app, window title, or URL it appears in clearly anchors it there. If a term or feature name (e.g. "the portal") appears without a clear anchor — especially from audio, which carries no app/URL context — describe it plainly (e.g. "worked on a portal feature") without binding it to a named project. Never guess which project or client an ambiguous reference belongs to; a vague-but-true note is better than a confident wrong attribution.
 
 Output ONLY the Markdown document, using exactly these section headers (omit a section if it has nothing real to say):
 

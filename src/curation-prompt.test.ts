@@ -14,6 +14,7 @@ describe("curation prompt", () => {
   test("system prompt forbids action items and intent inference", () => {
     expect(CURATION_SYSTEM_PROMPT).toContain("No action items");
     expect(CURATION_SYSTEM_PROMPT.toLowerCase()).toContain("exposure");
+    expect(CURATION_SYSTEM_PROMPT).toContain("Never guess which project");
   });
 
   test("user prompt renders apps, urls, and audio for the day", () => {
