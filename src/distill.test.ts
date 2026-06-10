@@ -18,4 +18,24 @@ describe("runDistill", () => {
     expect(res.jobId).toBe("job_9");
     expect(uploadedId).toBe("screenpipe-activity-2026-06-09");
   });
+
+  test("dry-run skips upload and returns the curated markdown", async () => {
+    const digest: DayDigest = {
+      dayKey: "2026-06-09",
+      apps: [{ app: "Ghostty", windows: [], urls: [], sampleText: [], firstSeen: "", lastSeen: "", frames: 1 }],
+      audio: [],
+      totalFrames: 1,
+      isEmpty: false,
+    };
+    let uploadCalled = false;
+    const deps: DistillDeps = {
+      fetchDay: async () => digest,
+      curate: async () => ({ markdown: "# preview doc", isEmptyDay: false }),
+      upload: async () => { uploadCalled = true; return { jobId: "should-not-happen" }; },
+    };
+    const res = await runDistill("2026-06-09", config, deps, { dryRun: true });
+    expect(uploadCalled).toBe(false);
+    expect(res.jobId).toBe(null);
+    expect(res.markdown).toBe("# preview doc");
+  });
 });

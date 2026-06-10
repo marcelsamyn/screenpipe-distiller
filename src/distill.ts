@@ -27,14 +27,18 @@ export async function runDistill(
   dayKey: string,
   config: Config,
   deps: DistillDeps = defaultDeps(config),
-): Promise<{ jobId: string; isEmptyDay: boolean }> {
+  options: { dryRun?: boolean } = {},
+): Promise<{ jobId: string | null; isEmptyDay: boolean; markdown: string }> {
   const digest = await deps.fetchDay(dayKey);
   const doc = await deps.curate(digest);
+  if (options.dryRun) {
+    return { jobId: null, isEmptyDay: doc.isEmptyDay, markdown: doc.markdown };
+  }
   const { jobId } = await deps.upload({
     id: `screenpipe-activity-${dayKey}`,
     content: doc.markdown,
     title: `Computer activity — ${dayKey}`,
     timestampIso: `${dayKey}T12:00:00Z`,
   });
-  return { jobId, isEmptyDay: doc.isEmptyDay };
+  return { jobId, isEmptyDay: doc.isEmptyDay, markdown: doc.markdown };
 }
