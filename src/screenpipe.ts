@@ -67,12 +67,17 @@ export class ScreenpipeClient {
 
   async searchAll(params: Omit<SearchParams, "limit" | "offset">): Promise<SearchItem[]> {
     const limit = 500;
+    const maxOffset = 20_000;
     const out: SearchItem[] = [];
-    for (let offset = 0; offset <= 20_000; offset += limit) {
+    for (let offset = 0; offset <= maxOffset; offset += limit) {
       const batch = await this.search({ ...params, limit, offset });
       out.push(...batch);
-      if (batch.length < limit) break;
+      if (batch.length < limit) return out;
     }
+    console.warn(
+      `[screenpipe] ${params.contentType} hit the ${maxOffset}-row page ceiling; ` +
+        `later rows of the day were not fetched (raise maxOffset if this recurs).`,
+    );
     return out;
   }
 }
@@ -134,6 +139,10 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
     }))
     .sort((x, y) => y.frames - x.frames)
     .slice(0, MAX_APPS);
+
+  if (byApp.size > MAX_APPS) {
+    console.warn(`[condense] ${dayKey}: kept top ${MAX_APPS} apps by frames, dropped ${byApp.size - MAX_APPS}`);
+  }
 
   return { dayKey, apps, audio, totalFrames, isEmpty: apps.length === 0 && audio.length === 0 };
 }

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { condenseItems, type SearchItem } from "./screenpipe";
 
 const ocr = (app: string, text: string, ts: string, url?: string, window?: string): SearchItem => ({
@@ -42,5 +42,16 @@ describe("condenseItems", () => {
     expect(digest.isEmpty).toBe(true);
     expect(digest.apps).toEqual([]);
     expect(digest.audio).toEqual([]);
+  });
+
+  test("warns when apps exceed MAX_APPS and are dropped", () => {
+    const items: SearchItem[] = Array.from({ length: 25 }, (_, i) =>
+      ocr(`App${i}`, "text", "2026-06-09T09:00:00Z"),
+    );
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const digest = condenseItems(items, "2026-06-09");
+    expect(digest.apps.length).toBe(20);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
