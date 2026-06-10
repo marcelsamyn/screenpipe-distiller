@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CURATION_SYSTEM_PROMPT, buildUserPrompt } from "./curation-prompt";
+import { buildSystemPrompt, buildUserPrompt } from "./curation-prompt";
 import type { DayDigest } from "./types";
 
 const digest: DayDigest = {
@@ -11,10 +11,13 @@ const digest: DayDigest = {
 };
 
 describe("curation prompt", () => {
-  test("system prompt forbids action items and intent inference", () => {
-    expect(CURATION_SYSTEM_PROMPT).toContain("No action items");
-    expect(CURATION_SYSTEM_PROMPT.toLowerCase()).toContain("exposure");
-    expect(CURATION_SYSTEM_PROMPT).toContain("Never guess which project");
+  test("system prompt forbids action items, infers nothing, and includes name + sections", () => {
+    const sys = buildSystemPrompt("Marcel");
+    expect(sys).toContain("No action items");
+    expect(sys.toLowerCase()).toContain("exposure");
+    expect(sys).toContain("Never guess which project");
+    expect(sys).toContain("Marcel");
+    expect(sys).toContain("Notable knowledge");
   });
 
   test("user prompt renders apps, urls, and audio for the day", () => {

@@ -83,8 +83,9 @@ export class ScreenpipeClient {
 }
 
 const MAX_APPS = 20;
-const MAX_SAMPLE_TEXT_PER_APP = 8;
-const MAX_TEXT_LEN = 200;
+const MAX_SAMPLE_TEXT_PER_APP = 10;
+const MAX_TEXT_LEN = 500;
+const MAX_TEXT_CANDIDATES = 300;
 
 function truncate(s: string, n: number): string {
   const t = s.replace(/\s+/g, " ").trim();
@@ -116,11 +117,12 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
     acc.frames += 1;
     pushDistinct(acc.windows, c.window_name ?? c.window_title);
     pushDistinct(acc.urls, c.browser_url);
-    const text = c.text ?? c.text_content;
-    if (text && text.trim()) {
-      const snippet = truncate(text, MAX_TEXT_LEN);
-      if (snippet && acc.sampleText.length < MAX_SAMPLE_TEXT_PER_APP && !acc.sampleText.includes(snippet)) {
-        acc.sampleText.push(snippet);
+    const raw = (c.text ?? c.text_content ?? "").trim();
+    if (raw) {
+      const snippet = truncate(raw, MAX_TEXT_LEN);
+      if (snippet && !acc.seenText.has(snippet) && acc.texts.length < MAX_TEXT_CANDIDATES) {
+        acc.seenText.add(snippet);
+        acc.texts.push({ len: raw.length, snippet });
       }
     }
     if (!acc.firstSeen || c.timestamp < acc.firstSeen) acc.firstSeen = c.timestamp;
@@ -132,7 +134,12 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
       app,
       windows: a.windows,
       urls: a.urls,
-      sampleText: a.sampleText,
+      // Keep the longest distinct text blocks — long prose (explanations,
+      // definitions) is more memory-worthy than short UI chrome.
+      sampleText: a.texts
+        .sort((t1, t2) => t2.len - t1.len)
+        .slice(0, MAX_SAMPLE_TEXT_PER_APP)
+        .map((t) => t.snippet),
       firstSeen: a.firstSeen ?? "",
       lastSeen: a.lastSeen ?? "",
       frames: a.frames,
@@ -150,14 +157,15 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
 interface AppActivityAcc {
   windows: string[];
   urls: string[];
-  sampleText: string[];
+  texts: { len: number; snippet: string }[];
+  seenText: Set<string>;
   firstSeen: string | null;
   lastSeen: string | null;
   frames: number;
 }
 
 function newAcc(): AppActivityAcc {
-  return { windows: [], urls: [], sampleText: [], firstSeen: null, lastSeen: null, frames: 0 };
+  return { windows: [], urls: [], texts: [], seenText: new Set(), firstSeen: null, lastSeen: null, frames: 0 };
 }
 
 export async function fetchDayActivity(

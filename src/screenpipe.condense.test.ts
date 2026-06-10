@@ -54,4 +54,16 @@ describe("condenseItems", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  test("keeps the longest distinct text blocks when over the per-app cap", () => {
+    const items: SearchItem[] = Array.from({ length: 12 }, (_, i) =>
+      ocr("Zed", "x".repeat(i + 1), "2026-06-09T09:00:00Z"),
+    );
+    const digest = condenseItems(items, "2026-06-09");
+    const zed = digest.apps.find((a) => a.app === "Zed");
+    expect(zed?.sampleText.length).toBe(10);
+    expect(zed?.sampleText).not.toContain("x"); // shortest dropped
+    expect(zed?.sampleText).not.toContain("xx");
+    expect(zed?.sampleText).toContain("x".repeat(12)); // longest kept
+  });
 });

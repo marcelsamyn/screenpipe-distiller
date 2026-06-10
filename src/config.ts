@@ -12,6 +12,7 @@ const configSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1),
   CURATION_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
   USER_TIMEZONE: z.string().min(1).default("Europe/Brussels"),
+  USER_NAME: z.string().min(1).default("the user"),
 });
 
 export type Config = z.infer<typeof configSchema>;

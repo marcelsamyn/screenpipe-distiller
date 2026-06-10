@@ -3,7 +3,7 @@ import { curateDigest, type ChatClient } from "./curate";
 import type { Config } from "./config";
 import type { DayDigest } from "./types";
 
-const config = { CURATION_MODEL: "test/model", OPENROUTER_API_KEY: "k" } as Config;
+const config = { CURATION_MODEL: "test/model", OPENROUTER_API_KEY: "k", USER_NAME: "Marcel" } as Config;
 
 const nonEmpty: DayDigest = {
   dayKey: "2026-06-09",

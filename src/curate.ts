@@ -5,7 +5,7 @@
 import OpenAI from "openai";
 import type { Config } from "./config";
 import type { CuratedDoc, DayDigest } from "./types";
-import { CURATION_SYSTEM_PROMPT, buildUserPrompt } from "./curation-prompt";
+import { buildSystemPrompt, buildUserPrompt } from "./curation-prompt";
 
 export class CurationError extends Error {}
 
@@ -39,7 +39,7 @@ export async function curateDigest(digest: DayDigest, config: Config, client?: C
   const { content } = await chat.create({
     model: config.CURATION_MODEL,
     messages: [
-      { role: "system", content: CURATION_SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(config.USER_NAME) },
       { role: "user", content: buildUserPrompt(digest) },
     ],
   });
