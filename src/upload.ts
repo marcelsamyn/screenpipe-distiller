@@ -1,6 +1,7 @@
 /**
- * Uploads a curated activity document to Assistant Memory via the hosted
- * Petals proxy. Idempotent on document.id; retries network/5xx with backoff.
+ * Uploads a curated activity document to a memory backend — either directly to
+ * Assistant Memory or via the Petals proxy. Idempotent on document.id; retries
+ * network/5xx with backoff.
  */
 import { z } from "zod";
 import type { Config } from "./config";
@@ -16,17 +17,45 @@ export interface DocPayload {
 
 const uploadResponseSchema = z.object({ message: z.string(), jobId: z.string() }).passthrough();
 
-export function buildDocumentBody(p: DocPayload) {
+export function buildDocument(p: DocPayload) {
   return {
-    document: {
-      id: p.id,
-      content: p.content,
-      contentType: "markdown",
-      scope: "personal",
-      title: p.title,
-      timestamp: p.timestampIso,
-    },
+    id: p.id,
+    content: p.content,
+    contentType: "markdown",
+    scope: "personal",
+    title: p.title,
+    timestamp: p.timestampIso,
   } as const;
+}
+
+interface UploadTarget {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+}
+
+export function resolveTarget(p: DocPayload, config: Config): UploadTarget {
+  const document = buildDocument(p);
+  if (config.UPLOAD_MODE === "petals") {
+    if (!config.PETALS_API_KEY) {
+      throw new UploadError("PETALS_API_KEY is required for UPLOAD_MODE=petals");
+    }
+    return {
+      url: `${config.PETALS_BASE_URL}/api/memory/ingest/document`,
+      headers: { "Content-Type": "application/json", "x-api-key": config.PETALS_API_KEY },
+      body: { document },
+    };
+  }
+  if (!config.MEMORY_USER_ID) {
+    throw new UploadError("MEMORY_USER_ID is required for UPLOAD_MODE=direct");
+  }
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (config.MEMORY_API_KEY) headers["Authorization"] = `Bearer ${config.MEMORY_API_KEY}`;
+  return {
+    url: `${config.MEMORY_API_URL}/ingest/document`,
+    headers,
+    body: { userId: config.MEMORY_USER_ID, document },
+  };
 }
 
 interface UploadDeps {
@@ -34,15 +63,15 @@ interface UploadDeps {
   sleep?: (ms: number) => Promise<void>;
 }
 
-export async function uploadDocument(p: DocPayload, config: Config, deps: UploadDeps = {}): Promise<{ jobId: string }> {
+export async function uploadDocument(
+  p: DocPayload,
+  config: Config,
+  deps: UploadDeps = {},
+): Promise<{ jobId: string }> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-  const url = `${config.PETALS_BASE_URL}/api/memory/ingest/document`;
-  const init: RequestInit = {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": config.PETALS_API_KEY },
-    body: JSON.stringify(buildDocumentBody(p)),
-  };
+  const { url, headers, body } = resolveTarget(p, config);
+  const init: RequestInit = { method: "POST", headers, body: JSON.stringify(body) };
 
   const maxAttempts = 4;
   let lastErr: unknown;
@@ -51,15 +80,15 @@ export async function uploadDocument(p: DocPayload, config: Config, deps: Upload
     try {
       res = await fetchImpl(url, init);
     } catch (e) {
-      lastErr = e; // network error → retry
+      lastErr = e;
     }
     if (res) {
       if (res.ok) return { jobId: uploadResponseSchema.parse(await res.json()).jobId };
       const text = await res.text();
       if (res.status >= 400 && res.status < 500) {
-        throw new UploadError(`Petals rejected upload ${res.status}: ${text}`);
+        throw new UploadError(`upload rejected ${res.status}: ${text}`);
       }
-      lastErr = new UploadError(`Petals upload failed ${res.status}: ${text}`); // 5xx → retry
+      lastErr = new UploadError(`upload failed ${res.status}: ${text}`);
     }
     if (attempt < maxAttempts) await sleep(250 * 2 ** attempt);
   }
