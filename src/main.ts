@@ -1,7 +1,7 @@
 /** CLI: `bun run distill [--date YYYY-MM-DD]` (default: yesterday). */
 import { loadConfig } from "./config";
 import { runDistill } from "./distill";
-import { yesterdayKey } from "./date-utils";
+import { targetDayKey } from "./date-utils";
 
 function parseDateArg(argv: string[], timeZone: string): string {
   const idx = argv.indexOf("--date");
@@ -10,7 +10,7 @@ function parseDateArg(argv: string[], timeZone: string): string {
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("--date must be YYYY-MM-DD");
     return value;
   }
-  return yesterdayKey(new Date(), timeZone);
+  return targetDayKey(new Date(), timeZone);
 }
 
 async function main(): Promise<void> {

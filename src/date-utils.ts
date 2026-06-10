@@ -57,6 +57,20 @@ function nextDayKey(dayKey: DayKey): DayKey {
   return next.toISOString().slice(0, 10);
 }
 
+/**
+ * The day the distiller should process given the current time: the current
+ * local day in the afternoon/evening (local hour >= 12), the previous day
+ * before noon. Makes an evening-scheduled run capture "today" while a run that
+ * slips to the next morning (e.g. after the Mac slept) still captures the
+ * intended day.
+ */
+export function targetDayKey(now: Date, timeZone: string): DayKey {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(now),
+  );
+  return hour >= 12 ? dayKeyFor(now, timeZone) : yesterdayKey(now, timeZone);
+}
+
 export function dayWindowUtc(dayKey: DayKey, timeZone: string): { startIso: string; endIso: string } {
   return {
     startIso: localMidnightUtcIso(dayKey, timeZone),
