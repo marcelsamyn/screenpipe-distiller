@@ -34,7 +34,7 @@ describe("curateDigest", () => {
     };
     const doc = await curateDigest(nonEmpty, config, client);
     expect(captured!.model).toBe("test/model");
-    expect(captured!.system).toContain("No action items");
+    expect(captured!.system).toContain("No invented action items");
     expect(captured!.user).toContain("Ghostty");
     expect(doc.isEmptyDay).toBe(false);
     expect(doc.markdown).toContain("What I worked on");

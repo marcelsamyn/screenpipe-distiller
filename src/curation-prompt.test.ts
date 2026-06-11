@@ -13,11 +13,14 @@ const digest: DayDigest = {
 describe("curation prompt", () => {
   test("system prompt forbids action items, infers nothing, and includes name + sections", () => {
     const sys = buildSystemPrompt("Marcel");
-    expect(sys).toContain("No action items");
+    expect(sys).toContain("No invented action items");
+    expect(sys).toContain("DO capture real commitments");
     expect(sys.toLowerCase()).toContain("exposure");
     expect(sys).toContain("Never guess which project");
     expect(sys).toContain("Marcel");
     expect(sys).toContain("Notable knowledge");
+    expect(sys).toContain("Conversations & meetings");
+    expect(sys).toContain("Commitments & promises");
   });
 
   test("user prompt renders apps, urls, and audio for the day", () => {

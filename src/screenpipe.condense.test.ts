@@ -66,4 +66,37 @@ describe("condenseItems", () => {
     expect(zed?.sampleText).not.toContain("xx");
     expect(zed?.sampleText).toContain("x".repeat(12)); // longest kept
   });
+
+  test("drops system-audio (media playback) but keeps real speech", () => {
+    const items: SearchItem[] = [
+      { type: "Audio", content: { transcription: "this is how you do a dead bug", speaker_label: "System Audio", timestamp: "2026-06-09T11:00:00Z" } },
+      { type: "Audio", content: { transcription: "can you review my PR?", speaker_label: "Yuri", timestamp: "2026-06-09T11:05:00Z" } },
+    ];
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const digest = condenseItems(items, "2026-06-09");
+    expect(digest.audio.length).toBe(1);
+    expect(digest.audio[0]?.speaker).toBe("Yuri");
+    warn.mockRestore();
+  });
+
+  test("gives communication apps a larger, recency-biased text budget", () => {
+    const items: SearchItem[] = Array.from({ length: 20 }, (_, i) =>
+      ocr("Slack", `message ${String(i).padStart(2, "0")}`, `2026-06-09T09:${String(i).padStart(2, "0")}:00Z`),
+    );
+    const digest = condenseItems(items, "2026-06-09");
+    const slack = digest.apps.find((a) => a.app === "Slack");
+    expect(slack?.sampleText.length).toBe(20); // all 20 kept (above the non-comms cap of 10)
+    expect(slack?.sampleText[0]).toBe("message 19"); // most recent first
+  });
+
+  test("never drops a communication app with content, even when low-frame", () => {
+    const items: SearchItem[] = [
+      ...Array.from({ length: 25 }, (_, i) => ocr(`App${i}`, "x".repeat(60), `2026-06-09T08:00:0${i % 10}Z`)),
+      ocr("Slack", "Yuri: ping about the release", "2026-06-09T09:00:00Z"),
+    ];
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const digest = condenseItems(items, "2026-06-09");
+    expect(digest.apps.find((a) => a.app === "Slack")).toBeDefined();
+    warn.mockRestore();
+  });
 });

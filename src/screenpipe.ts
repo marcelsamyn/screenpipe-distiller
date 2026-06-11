@@ -84,8 +84,38 @@ export class ScreenpipeClient {
 
 const MAX_APPS = 20;
 const MAX_SAMPLE_TEXT_PER_APP = 10;
+const MAX_SAMPLE_TEXT_PER_COMMS_APP = 25;
 const MAX_TEXT_LEN = 500;
 const MAX_TEXT_CANDIDATES = 300;
+
+// Native communication apps whose on-screen text is conversation, not UI chrome.
+// Lowercased substring match against app_name. Browser-based comms (Slack web,
+// Gmail) still flow through the generic path; widening detection to the browser
+// would over-capture unrelated tabs, so that is deliberately left as a follow-up.
+const COMMUNICATION_APPS = [
+  "slack",
+  "messages",
+  "mail",
+  "whatsapp",
+  "discord",
+  "telegram",
+  "signal",
+  "zoom",
+  "microsoft teams",
+  "teams",
+  "messenger",
+  "superhuman",
+  "outlook",
+];
+
+function isCommunicationApp(app: string): boolean {
+  const a = app.toLowerCase();
+  return COMMUNICATION_APPS.some((name) => a.includes(name));
+}
+
+// Media playback (videos, music) is captured as system output audio, not
+// conversation. Real microphone/diarized speech carries a different speaker label.
+const SYSTEM_AUDIO_SPEAKER = "System Audio";
 
 function truncate(s: string, n: number): string {
   const t = s.replace(/\s+/g, " ").trim();
@@ -102,12 +132,19 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
   const byApp = new Map<string, AppActivityAcc>();
   const audio: DayDigest["audio"] = [];
   let totalFrames = 0;
+  let droppedSystemAudio = 0;
 
   for (const item of items) {
     const c = item.content;
     if (item.type === "Audio") {
       const text = (c.transcription ?? c.text ?? "").trim();
-      if (text) audio.push({ speaker: c.speaker_label ?? null, text, timestamp: c.timestamp });
+      if (!text) continue;
+      const speaker = c.speaker_label ?? null;
+      if (speaker === SYSTEM_AUDIO_SPEAKER) {
+        droppedSystemAudio += 1;
+        continue;
+      }
+      audio.push({ speaker, text, timestamp: c.timestamp });
       continue;
     }
     const app = (c.app_name ?? "Unknown").trim() || "Unknown";
@@ -122,33 +159,52 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
       const snippet = truncate(raw, MAX_TEXT_LEN);
       if (snippet && !acc.seenText.has(snippet) && acc.texts.length < MAX_TEXT_CANDIDATES) {
         acc.seenText.add(snippet);
-        acc.texts.push({ len: raw.length, snippet });
+        acc.texts.push({ len: raw.length, snippet, ts: c.timestamp });
       }
     }
     if (!acc.firstSeen || c.timestamp < acc.firstSeen) acc.firstSeen = c.timestamp;
     if (!acc.lastSeen || c.timestamp > acc.lastSeen) acc.lastSeen = c.timestamp;
   }
 
-  const apps: AppActivity[] = [...byApp.entries()]
-    .map(([app, a]) => ({
-      app,
-      windows: a.windows,
-      urls: a.urls,
-      // Keep the longest distinct text blocks — long prose (explanations,
-      // definitions) is more memory-worthy than short UI chrome.
-      sampleText: a.texts
-        .sort((t1, t2) => t2.len - t1.len)
-        .slice(0, MAX_SAMPLE_TEXT_PER_APP)
-        .map((t) => t.snippet),
-      firstSeen: a.firstSeen ?? "",
-      lastSeen: a.lastSeen ?? "",
-      frames: a.frames,
-    }))
-    .sort((x, y) => y.frames - x.frames)
-    .slice(0, MAX_APPS);
+  const ranked: AppActivity[] = [...byApp.entries()]
+    .map(([app, a]) => {
+      const comms = isCommunicationApp(app);
+      // Conversations: keep the most RECENT thread content with a larger budget.
+      // Everything else: keep the longest distinct blocks (prose > UI chrome).
+      const ordered = comms
+        ? [...a.texts].sort((t1, t2) => (t1.ts < t2.ts ? 1 : t1.ts > t2.ts ? -1 : 0))
+        : [...a.texts].sort((t1, t2) => t2.len - t1.len);
+      const budget = comms ? MAX_SAMPLE_TEXT_PER_COMMS_APP : MAX_SAMPLE_TEXT_PER_APP;
+      return {
+        app,
+        windows: a.windows,
+        urls: a.urls,
+        sampleText: ordered.slice(0, budget).map((t) => t.snippet),
+        firstSeen: a.firstSeen ?? "",
+        lastSeen: a.lastSeen ?? "",
+        frames: a.frames,
+      };
+    })
+    .sort((x, y) => y.frames - x.frames);
 
-  if (byApp.size > MAX_APPS) {
-    console.warn(`[condense] ${dayKey}: kept top ${MAX_APPS} apps by frames, dropped ${byApp.size - MAX_APPS}`);
+  // Keep the top apps by activity, but never drop a communication app that has
+  // real conversation text just because it was low-frame — those are high value.
+  const top = ranked.slice(0, MAX_APPS);
+  const extraComms = ranked
+    .slice(MAX_APPS)
+    .filter((a) => isCommunicationApp(a.app) && a.sampleText.length > 0);
+  const apps = [...top, ...extraComms];
+
+  if (ranked.length > apps.length) {
+    console.warn(
+      `[condense] ${dayKey}: kept top ${MAX_APPS} apps by frames` +
+        `${extraComms.length ? ` + ${extraComms.length} communication app(s)` : ""}, dropped ${ranked.length - apps.length}`,
+    );
+  }
+  if (droppedSystemAudio > 0) {
+    console.warn(
+      `[condense] ${dayKey}: dropped ${droppedSystemAudio} system-audio (media playback) snippet(s) — not conversation`,
+    );
   }
 
   return { dayKey, apps, audio, totalFrames, isEmpty: apps.length === 0 && audio.length === 0 };
@@ -157,7 +213,7 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
 interface AppActivityAcc {
   windows: string[];
   urls: string[];
-  texts: { len: number; snippet: string }[];
+  texts: { len: number; snippet: string; ts: string }[];
   seenText: Set<string>;
   firstSeen: string | null;
   lastSeen: string | null;
