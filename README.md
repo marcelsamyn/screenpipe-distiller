@@ -45,11 +45,15 @@ bun test                                       # run the test suite
 ## Scheduling (macOS)
 
 ```bash
-./scripts/install-record-autostart.sh   # keep `screenpipe record` running at login
+./scripts/install-record-app.sh         # audio + screen recorder autostart (recommended, macOS)
 ./scripts/install-schedules.sh          # daily distill (22:00) + health checks (12:00 & 20:00)
 ```
 
-The daily run targets the current day in the evening; if the machine was asleep and the job fires the next morning instead, it falls back to the previous day so the right day is always captured. If a launchd microphone-permission issue makes audio-enabled recording crash-loop, run the record installer with `RECORD_AUDIO=0`.
+`install-record-app.sh` wraps `screenpipe record` in a tiny ad-hoc-signed `.app` launched via LaunchServices. This is required for audio on macOS: a bare `screenpipe` started by launchd has no code identity, so it can never hold a microphone grant — the app bundle gives it one. On first launch, approve the **Microphone** prompt (and grant **Accessibility** + **Input Monitoring** to "Screenpipe Recorder" for full screen-text and UI capture). Pin a mic with `AUDIO_DEVICE="MacBook Pro Microphone (input)"`, follow the system default with `AUDIO_DEVICE=""`, or skip audio entirely with `RECORD_AUDIO=0`. Don't re-run the installer after granting permissions — recompiling changes the signature and resets the grants.
+
+For a screen-only recorder with no microphone (and no compiler needed), use `./scripts/install-record-autostart.sh` instead.
+
+The daily run targets the current day in the evening; if the machine was asleep and the job fires the next morning instead, it falls back to the previous day so the right day is always captured.
 
 ## Upload modes
 
