@@ -218,12 +218,21 @@ export async function fetchDayActivity(
   client: ScreenpipeClient,
   dayKey: string,
   timeZone: string,
+  loadConversations?: (startIso: string, endIso: string) => Promise<Conversation[]>,
 ): Promise<DayDigest> {
   const { startIso, endIso } = dayWindowUtc(dayKey, timeZone);
-  const [ocr, audio, input] = await Promise.all([
+  const [ocr, audio, input, conversations] = await Promise.all([
     client.searchAll({ contentType: "ocr", startIso, endIso, minLength: 50 }),
     client.searchAll({ contentType: "audio", startIso, endIso }),
     client.searchAll({ contentType: "input", startIso, endIso }),
+    loadConversations?.(startIso, endIso) ?? Promise.resolve<Conversation[]>([]),
   ]);
-  return condenseItems([...ocr, ...audio, ...input], dayKey);
+
+  // Suppress the a11y/OCR WhatsApp buckets only when the connector contributed,
+  // so the same thread is not counted twice. Covers "WhatsApp" and "WhatsApp (web)".
+  const suppress =
+    conversations.length > 0 ? (key: string) => key.toLowerCase().includes("whatsapp") : undefined;
+  const digest = condenseItems([...ocr, ...audio, ...input], dayKey, { suppressBucket: suppress });
+  if (conversations.length === 0) return digest;
+  return { ...digest, conversations, isEmpty: false };
 }
