@@ -12,9 +12,20 @@ describe("contactNameUpdates", () => {
         { name: "No Id" },
       ]),
     ).toEqual([
-      { jid: "a@s.whatsapp.net", name: "Alice", isGroup: false },
-      { jid: "b@s.whatsapp.net", name: "Bob", isGroup: false },
-      { jid: "c@s.whatsapp.net", name: "Carol Inc", isGroup: false },
+      { jid: "a@s.whatsapp.net", name: "Alice", isGroup: false, saved: true },
+      { jid: "b@s.whatsapp.net", name: "Bob", isGroup: false, saved: false },
+      { jid: "c@s.whatsapp.net", name: "Carol Inc", isGroup: false, saved: false },
+    ]);
+  });
+
+  test("keys a saved contact under both its lid and phone-number jids", () => {
+    expect(
+      contactNameUpdates([
+        { id: "111@lid", lid: "111@lid", phoneNumber: "31600000000@s.whatsapp.net", name: "Dana" },
+      ]),
+    ).toEqual([
+      { jid: "111@lid", name: "Dana", isGroup: false, saved: true },
+      { jid: "31600000000@s.whatsapp.net", name: "Dana", isGroup: false, saved: true },
     ]);
   });
 });
@@ -29,8 +40,8 @@ describe("groupNameUpdates", () => {
         { id: "empty@g.us", subject: "  " },
       ]),
     ).toEqual([
-      { jid: "trip@g.us", name: "Trip 2026", isGroup: true },
-      { jid: "fam@g.us", name: "Family", isGroup: true },
+      { jid: "trip@g.us", name: "Trip 2026", isGroup: true, saved: false },
+      { jid: "fam@g.us", name: "Family", isGroup: true, saved: false },
     ]);
   });
 });
@@ -46,8 +57,8 @@ describe("pushNameUpdates", () => {
         { sender: "c@s.whatsapp.net", fromMe: false, pushName: "  " },
       ]),
     ).toEqual([
-      { jid: "a@s.whatsapp.net", name: "Alice", isGroup: false },
-      { jid: "alice@s.whatsapp.net", name: "Alice in Trip group", isGroup: false },
+      { jid: "a@s.whatsapp.net", name: "Alice", isGroup: false, saved: false },
+      { jid: "alice@s.whatsapp.net", name: "Alice in Trip group", isGroup: false, saved: false },
     ]);
   });
 });

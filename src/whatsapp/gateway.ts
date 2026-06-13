@@ -43,20 +43,25 @@ const storeMessages = (messages: readonly WAMessage[]): ArchivedMessage[] => {
 };
 
 const applyNames = (updates: readonly ChatNameUpdate[]): void => {
-  updates.forEach((update) => archive.upsertChatName(update.jid, update.name, update.isGroup));
+  updates.forEach((update) =>
+    archive.upsertChatName(update.jid, update.name, update.isGroup, update.saved),
+  );
 };
 
 const backfillGroupNames = async (socket: ReturnType<typeof makeWASocket>): Promise<void> => {
   const known = archive.chatNames();
-  const missing = archive
+  const groupJids = archive
     .listChats()
     .map((chat) => chat.jid)
-    .filter((jid) => jid.endsWith("@g.us") && !known.has(jid));
-  for (const jid of missing) {
+    .filter((jid) => jid.endsWith("@g.us"));
+  for (const jid of groupJids) {
     try {
       const meta = await socket.groupMetadata(jid);
       const subject = meta.subject?.trim();
-      if (subject) archive.upsertChatName(jid, subject, true);
+      if (subject && !known.has(jid)) archive.upsertChatName(jid, subject, true);
+      // Participants are Contacts carrying lid/phoneNumber/saved name — harvest them so
+      // group senders (often @lid) resolve and address-book members are flagged saved.
+      applyNames(contactNameUpdates(meta.participants));
     } catch {
       // Group may be inaccessible (left/removed); skip and continue.
     }
