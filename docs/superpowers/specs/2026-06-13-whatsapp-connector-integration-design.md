@@ -258,15 +258,29 @@ Run: `bun test` and `bun run type-check`.
   on reconnect (live events + `groupMetadata` cover the active set).
 - Audio-transcription backlog (separate investigation; mic inactive, segments pending).
 
-### Follow-ups surfaced in the post-implementation review (2026-06-13)
+### Group relevance filter + LID handling (added 2026-06-13)
 
-The implementation was reviewed and approved (no critical/important issues). These
-name-quality robustness items were deferred to keep the merge at approved scope:
+Investigation of the live archive showed ~60% of senders are `@lid`-addressed and the
+bulk of message volume is large group chats with unknown people. Rather than name every
+stranger, the connector now uses **address-book membership as a relevance filter**:
 
-- **`@lid` sender resolution.** Baileys 7.x increasingly delivers group participants
-  (and some 1:1s) as `@lid` JIDs, while the `chats` name table is keyed by the
-  `@s.whatsapp.net` phone JID. Mismatched keys fall through to the `+number` fallback.
-  A proper fix maps `@lid` ↔ phone JID via Baileys' LID mapping before resolving names.
+- **Saved-contact tracking.** Baileys `Contact` carries `lid`, `phoneNumber`, and `name`
+  (the user's saved address-book name). The sidecar now stores each name under *both* its
+  `@lid` and `@s.whatsapp.net` keys (from `contacts.*` events and group-metadata
+  participants) and tags address-book contacts `saved` in the `chats` table
+  (`saved` column; sticky; a real saved name is kept over a later self-set pushName).
+- **Group filter.** `loadWhatsAppConversations` drops group messages from senders that
+  are neither saved contacts nor the user; groups with nothing left are dropped. 1:1
+  chats are never filtered. Toggle: `WHATSAPP_GROUP_FILTER=contacts` (default) | `all`.
+- This dual-keying also resolves most `@lid` senders (the same `@lid` key holds the
+  name), so the standalone `@lid`→phone resolution and neutral-label items below are
+  largely subsumed; what survives the filter is, by construction, people we can name.
+
+Remaining minor follow-ups:
+
+- **Residual `@lid` 1:1s.** A 1:1 from an `@lid` we have no contact/pushName for still
+  renders `+<lid-digits>`. Rare once the filter is on (1:1s are kept regardless);
+  Baileys' `signalRepository.lidMapping.getPNForLID` could resolve the leftover.
 - **`pushName` enrichment — DONE (2026-06-13).** `storeMessages` now returns the
   archived messages, and both message handlers feed them through `pushNameUpdates`
   (`names.ts`) → `upsertChatName(sender, pushName, false)` for inbound messages, so a

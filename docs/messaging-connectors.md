@@ -93,6 +93,11 @@ The sidecar stores messages in
 `~/.screenpipe-distiller/whatsapp/messages.sqlite`. WhatsApp decides how much
 history a newly linked device receives, so the archive may still be incomplete.
 
+When folding messages into the distill, group chats are filtered to **saved
+address-book contacts and your own messages** by default — unknown senders in
+large groups are dropped as noise. 1:1 chats are always kept. Set
+`WHATSAPP_GROUP_FILTER=all` to keep every group message instead.
+
 ## Gmail Read API
 
 After Gmail has been connected through the Screenpipe desktop app, Screenpipe

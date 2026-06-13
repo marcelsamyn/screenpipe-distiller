@@ -33,13 +33,15 @@ describe("loadConfig", () => {
   test("defaults the WhatsApp connector to auto and expands the archive ~path", () => {
     const cfg = loadConfig(directBase);
     expect(cfg.WHATSAPP_CONNECTOR).toBe("auto");
+    expect(cfg.WHATSAPP_GROUP_FILTER).toBe("contacts");
     expect(cfg.WHATSAPP_ARCHIVE_PATH.startsWith("~")).toBe(false);
     expect(cfg.WHATSAPP_ARCHIVE_PATH.endsWith("/.screenpipe-distiller/whatsapp/messages.sqlite")).toBe(true);
   });
 
-  test("honors an explicit connector value and absolute archive path", () => {
-    const cfg = loadConfig({ ...directBase, WHATSAPP_CONNECTOR: "off", WHATSAPP_ARCHIVE_PATH: "/tmp/wa.sqlite" });
+  test("honors an explicit connector value, group filter, and absolute archive path", () => {
+    const cfg = loadConfig({ ...directBase, WHATSAPP_CONNECTOR: "off", WHATSAPP_GROUP_FILTER: "all", WHATSAPP_ARCHIVE_PATH: "/tmp/wa.sqlite" });
     expect(cfg.WHATSAPP_CONNECTOR).toBe("off");
+    expect(cfg.WHATSAPP_GROUP_FILTER).toBe("all");
     expect(cfg.WHATSAPP_ARCHIVE_PATH).toBe("/tmp/wa.sqlite");
   });
 });

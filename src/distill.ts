@@ -26,6 +26,7 @@ function defaultDeps(config: Config): DistillDeps {
               archivePath: config.WHATSAPP_ARCHIVE_PATH,
               startUnix: Math.floor(Date.parse(startIso) / 1000),
               endUnix: Math.floor(Date.parse(endIso) / 1000),
+              groupFilter: config.WHATSAPP_GROUP_FILTER,
             });
           } catch (error) {
             console.warn(

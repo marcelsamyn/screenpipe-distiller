@@ -25,6 +25,9 @@ const configSchema = z
       .string()
       .default("~/.screenpipe-distiller/whatsapp/messages.sqlite")
       .transform(expandTilde),
+    // Group-message relevance: "contacts" keeps only saved address-book contacts +
+    // you (drops unknown senders in large groups); "all" keeps every group message.
+    WHATSAPP_GROUP_FILTER: z.enum(["contacts", "all"]).default("contacts"),
     // Upload target: "direct" → Assistant Memory; "petals" → Petals proxy.
     UPLOAD_MODE: z.enum(["direct", "petals"]).default("direct"),
     // direct mode (Assistant Memory)
