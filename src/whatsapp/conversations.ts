@@ -23,6 +23,12 @@ interface LoadParams {
   startUnix: number;
   endUnix: number;
   caps?: ConversationCaps;
+  /**
+   * Group-message relevance filter. "contacts" (default) keeps only messages from
+   * saved address-book contacts and yourself — dropping unknown senders in large
+   * groups; "all" keeps every group message. 1:1 chats are never filtered.
+   */
+  groupFilter?: "contacts" | "all";
 }
 
 function phoneFromJid(jid: string): string {
@@ -45,7 +51,9 @@ export function loadWhatsAppConversations(params: LoadParams): Conversation[] {
   const archive = new WhatsAppArchive(params.archivePath, { readonly: true });
   try {
     const messages = archive.listMessagesInWindow(params.startUnix, params.endUnix);
-    return buildConversations(messages, archive.chatNames(), caps);
+    // null = no group filtering ("all"); a set = keep only these senders (+ me) in groups.
+    const saved = params.groupFilter === "all" ? null : archive.savedContacts();
+    return buildConversations(messages, archive.chatNames(), saved, caps);
   } finally {
     archive.close();
   }
@@ -54,6 +62,7 @@ export function loadWhatsAppConversations(params: LoadParams): Conversation[] {
 function buildConversations(
   messages: readonly ArchivedMessage[],
   names: Map<string, string>,
+  savedSenders: Set<string> | null,
   caps: ConversationCaps,
 ): Conversation[] {
   const byJid = new Map<string, ArchivedMessage[]>();
@@ -69,6 +78,8 @@ function buildConversations(
       const chatName = names.get(jid) ?? (isGroup ? "WhatsApp group" : phoneFromJid(jid));
       const lastTimestamp = msgs.reduce((max, m) => (m.timestamp > max ? m.timestamp : max), 0);
       const rendered = msgs.flatMap((m): ConversationMessage[] => {
+        // In groups, drop messages from senders who aren't saved contacts (or me).
+        if (isGroup && savedSenders && !m.fromMe && !savedSenders.has(m.sender)) return [];
         const text = messageText(m);
         if (text === null) return [];
         const sender = m.fromMe ? "me" : (names.get(m.sender) ?? phoneFromJid(m.sender));

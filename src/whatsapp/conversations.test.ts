@@ -11,11 +11,14 @@ const tempPath = (): string => {
   paths.push(path);
   return path;
 };
-const seed = (messages: readonly ArchivedMessage[], names: [string, string, boolean][] = []): string => {
+const seed = (
+  messages: readonly ArchivedMessage[],
+  names: [jid: string, name: string, isGroup: boolean, saved?: boolean][] = [],
+): string => {
   const path = tempPath();
   const archive = new WhatsAppArchive(path);
   archive.storeMessages(messages);
-  names.forEach(([jid, name, isGroup]) => archive.upsertChatName(jid, name, isGroup));
+  names.forEach(([jid, name, isGroup, saved]) => archive.upsertChatName(jid, name, isGroup, saved ?? false));
   archive.close();
   return path;
 };
@@ -70,12 +73,60 @@ describe("loadWhatsAppConversations", () => {
       [msg({ id: "1", jid: "trip@g.us", timestamp: 100, sender: "a@s.whatsapp.net", text: "boarding" })],
       [
         ["trip@g.us", "Trip 2026", true],
-        ["a@s.whatsapp.net", "Alice", false],
+        ["a@s.whatsapp.net", "Alice", false, true],
       ],
     );
     const [conv] = loadWhatsAppConversations({ archivePath: path, startUnix: 0, endUnix: 1000 });
     expect(conv).toMatchObject({ chatName: "Trip 2026", isGroup: true });
     expect(conv?.messages[0]?.sender).toBe("Alice");
+  });
+
+  test("in groups, keeps saved contacts + me and drops unknown senders", () => {
+    const path = seed(
+      [
+        msg({ id: "1", jid: "trip@g.us", timestamp: 100, sender: "saved@s.whatsapp.net", text: "from a friend" }),
+        msg({ id: "2", jid: "trip@g.us", timestamp: 110, sender: "9999@lid", text: "from a stranger" }),
+        msg({ id: "3", jid: "trip@g.us", timestamp: 120, fromMe: true, sender: "me", text: "my reply" }),
+      ],
+      [
+        ["trip@g.us", "Trip 2026", true],
+        ["saved@s.whatsapp.net", "Friend", false, true],
+      ],
+    );
+    const [conv] = loadWhatsAppConversations({ archivePath: path, startUnix: 0, endUnix: 1000 });
+    expect(conv?.messages.map((m) => m.text)).toEqual(["from a friend", "my reply"]);
+    expect(conv?.messages.map((m) => m.sender)).toEqual(["Friend", "me"]);
+  });
+
+  test("drops a group entirely when only unknown senders participate", () => {
+    const path = seed(
+      [
+        msg({ id: "1", jid: "noise@g.us", timestamp: 100, sender: "1111@lid", text: "spam" }),
+        msg({ id: "2", jid: "noise@g.us", timestamp: 110, sender: "2222@lid", text: "more spam" }),
+      ],
+      [["noise@g.us", "Big Community", true]],
+    );
+    expect(loadWhatsAppConversations({ archivePath: path, startUnix: 0, endUnix: 1000 })).toEqual([]);
+  });
+
+  test("never filters 1:1 chats, even with an unsaved counterpart", () => {
+    const path = seed([
+      msg({ id: "1", jid: "31699999999@s.whatsapp.net", timestamp: 100, sender: "31699999999@s.whatsapp.net", text: "hi from an unsaved number" }),
+    ]);
+    const [conv] = loadWhatsAppConversations({ archivePath: path, startUnix: 0, endUnix: 1000 });
+    expect(conv?.messages[0]?.text).toBe("hi from an unsaved number");
+  });
+
+  test("groupFilter 'all' keeps unknown group senders", () => {
+    const path = seed(
+      [
+        msg({ id: "1", jid: "noise@g.us", timestamp: 100, sender: "1111@lid", text: "stranger" }),
+        msg({ id: "2", jid: "noise@g.us", timestamp: 110, fromMe: true, sender: "me", text: "me" }),
+      ],
+      [["noise@g.us", "Big Community", true]],
+    );
+    const [conv] = loadWhatsAppConversations({ archivePath: path, startUnix: 0, endUnix: 1000, groupFilter: "all" });
+    expect(conv?.messages.map((m) => m.text)).toEqual(["stranger", "me"]);
   });
 
   test("falls back to +number and renders media placeholders", () => {
