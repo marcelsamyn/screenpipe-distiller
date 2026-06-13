@@ -80,6 +80,8 @@ function isBrowser(app: string): boolean {
  * keeps a desktop WhatsApp/Teams app under its real name rather than a "(web)"
  * label. Title matching is gated on the app being a browser so that, e.g., a
  * `whatsapp.ts` file open in an editor is never mistaken for a conversation.
+ * URL matching needs no such gate — Screenpipe only populates `browser_url`
+ * for browser frames.
  */
 export function classifyChannel(c: FrameContent): ChannelClassification {
   const app = (c.app_name ?? "Unknown").trim() || "Unknown";

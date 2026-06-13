@@ -12,7 +12,7 @@ It is deliberately **not** a to-do generator. The curation contract forbids acti
 Screenpipe (local capture) -> condense -> curate (LLM) -> ingest into Assistant Memory
 ```
 
-- **condense** (deterministic, no LLM): groups a day's frames by app / window / URL, keeps the longest substantive text blocks, drops noise — turning thousands of frames into a few KB.
+- **condense** (deterministic, no LLM): groups a day's frames by app / window / URL, keeps the most recent snippets for conversation channels and the longest substantive blocks for everything else, drops noise — turning thousands of frames into a few KB.
 - **curate** (one LLM call via OpenRouter): writes a durable activity document under a strict contract (durable over ephemeral, no action items, exposure != intent, no cross-project misattribution, capture notable knowledge).
 - **ingest**: uploads as a `personal`-scope document, idempotent per day (re-running a day replaces it).
 
