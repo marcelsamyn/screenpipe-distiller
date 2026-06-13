@@ -11,6 +11,7 @@ import pino from "pino";
 import { z } from "zod";
 import { WhatsAppArchive } from "./archive";
 import { toArchivedMessage } from "./message";
+import { contactNameUpdates, groupNameUpdates, type ChatNameUpdate } from "./names";
 
 process.umask(0o077);
 
@@ -39,6 +40,27 @@ const storeMessages = (messages: readonly WAMessage[]): number => {
   });
   archive.storeMessages(archived);
   return archived.length;
+};
+
+const applyNames = (updates: readonly ChatNameUpdate[]): void => {
+  updates.forEach((update) => archive.upsertChatName(update.jid, update.name, update.isGroup));
+};
+
+const backfillGroupNames = async (socket: ReturnType<typeof makeWASocket>): Promise<void> => {
+  const known = archive.chatNames();
+  const missing = archive
+    .listChats()
+    .map((chat) => chat.jid)
+    .filter((jid) => jid.endsWith("@g.us") && !known.has(jid));
+  for (const jid of missing) {
+    try {
+      const meta = await socket.groupMetadata(jid);
+      const subject = meta.subject?.trim();
+      if (subject) archive.upsertChatName(jid, subject, true);
+    } catch {
+      // Group may be inaccessible (left/removed); skip and continue.
+    }
+  }
 };
 
 Bun.serve({
@@ -87,8 +109,10 @@ const start = async (): Promise<void> => {
   });
 
   socket.ev.on("creds.update", saveCreds);
-  socket.ev.on("messaging-history.set", ({ messages, syncType, chunkOrder }) => {
+  socket.ev.on("messaging-history.set", ({ messages, contacts, chats, syncType, chunkOrder }) => {
     const stored = storeMessages(messages);
+    applyNames(contactNameUpdates(contacts ?? []));
+    applyNames(groupNameUpdates(chats ?? []));
     historyChunks += 1;
     historyMessages += stored;
     lastHistorySyncAt = new Date().toISOString();
@@ -97,6 +121,10 @@ const start = async (): Promise<void> => {
   socket.ev.on("messages.upsert", ({ messages }) => {
     storeMessages(messages);
   });
+  socket.ev.on("contacts.upsert", (contacts) => applyNames(contactNameUpdates(contacts)));
+  socket.ev.on("contacts.update", (contacts) => applyNames(contactNameUpdates(contacts)));
+  socket.ev.on("groups.upsert", (groups) => applyNames(groupNameUpdates(groups)));
+  socket.ev.on("groups.update", (groups) => applyNames(groupNameUpdates(groups)));
   socket.ev.on("connection.update", ({ connection, lastDisconnect, qr: nextQr }) => {
     if (nextQr) qr = nextQr;
     if (connection === "open") {
@@ -105,6 +133,7 @@ const start = async (): Promise<void> => {
       name = socket.user?.name ?? null;
       phone = socket.user?.id.split(":")[0] ?? null;
       console.log(JSON.stringify({ type: "connected", name, phone }));
+      void backfillGroupNames(socket);
     }
     if (connection !== "close") return;
 

@@ -34,4 +34,23 @@ describe("toArchivedMessage", () => {
       }),
     ).toBeNull();
   });
+
+  test("uses the group participant as the sender", () => {
+    expect(
+      toArchivedMessage({
+        key: {
+          id: "g1",
+          remoteJid: "trip@g.us",
+          fromMe: false,
+          participant: "alice@s.whatsapp.net",
+        },
+        messageTimestamp: 1_700_000_000,
+        message: { conversation: "boarding now" },
+      }),
+    ).toMatchObject({
+      jid: "trip@g.us",
+      sender: "alice@s.whatsapp.net",
+      text: "boarding now",
+    });
+  });
 });
