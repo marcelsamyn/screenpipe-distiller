@@ -46,7 +46,8 @@ export class WhatsAppArchive {
       CREATE TABLE IF NOT EXISTS chats (
         jid TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        is_group INTEGER NOT NULL DEFAULT 0
+        is_group INTEGER NOT NULL DEFAULT 0,
+        saved INTEGER NOT NULL DEFAULT 0
       );
     `);
   }
@@ -98,13 +99,22 @@ export class WhatsAppArchive {
     return rows.reverse().map((row) => ({ ...row, fromMe: row.fromMe === 1 }));
   }
 
-  upsertChatName(jid: string, name: string, isGroup: boolean): void {
+  upsertChatName(jid: string, name: string, isGroup: boolean, saved = false): void {
+    // `saved` (address-book contact) is sticky once set; a real saved name is kept
+    // over a later non-saved display name (e.g. a self-set pushName).
     this.#database
       .query(`
-        INSERT INTO chats (jid, name, is_group) VALUES (?, ?, ?)
-        ON CONFLICT(jid) DO UPDATE SET name = excluded.name, is_group = excluded.is_group
+        INSERT INTO chats (jid, name, is_group, saved) VALUES (?, ?, ?, ?)
+        ON CONFLICT(jid) DO UPDATE SET
+          name = CASE
+            WHEN excluded.saved = 1 THEN excluded.name
+            WHEN chats.saved = 1 THEN chats.name
+            ELSE excluded.name
+          END,
+          is_group = excluded.is_group,
+          saved = MAX(chats.saved, excluded.saved)
       `)
-      .run(jid, name, isGroup ? 1 : 0);
+      .run(jid, name, isGroup ? 1 : 0, saved ? 1 : 0);
   }
 
   chatNames(): Map<string, string> {
@@ -116,6 +126,18 @@ export class WhatsAppArchive {
     } catch {
       // Archive written before name enrichment has no `chats` table — treat as no names.
       return new Map();
+    }
+  }
+
+  /** JIDs of address-book ("saved") contacts — used to filter unknown group senders. */
+  savedContacts(): Set<string> {
+    try {
+      const rows = this.#database
+        .query<{ jid: string }, []>(`SELECT jid FROM chats WHERE saved = 1`)
+        .all();
+      return new Set(rows.map((row) => row.jid));
+    } catch {
+      return new Set();
     }
   }
 

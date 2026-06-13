@@ -138,4 +138,35 @@ describe("WhatsAppArchive", () => {
     expect(archive.chatNames()).toEqual(new Map());
     archive.close();
   });
+
+  test("tracks saved (address-book) contacts; saved is sticky and keeps the saved name", () => {
+    const archive = createArchive();
+    archive.upsertChatName("a@s.whatsapp.net", "Alice (saved)", false, true);
+    archive.upsertChatName("b@s.whatsapp.net", "Bob notify", false, false);
+    expect(archive.savedContacts()).toEqual(new Set(["a@s.whatsapp.net"]));
+
+    // A later non-saved display name must not clear saved nor overwrite the saved name.
+    archive.upsertChatName("a@s.whatsapp.net", "alice-pushname", false, false);
+    expect(archive.savedContacts()).toEqual(new Set(["a@s.whatsapp.net"]));
+    expect(archive.chatNames().get("a@s.whatsapp.net")).toBe("Alice (saved)");
+
+    // Promoting a previously-unsaved contact to saved updates both the flag and the name.
+    archive.upsertChatName("b@s.whatsapp.net", "Bob Smith", false, true);
+    expect(archive.savedContacts().has("b@s.whatsapp.net")).toBe(true);
+    expect(archive.chatNames().get("b@s.whatsapp.net")).toBe("Bob Smith");
+    archive.close();
+  });
+
+  test("savedContacts is empty when the chats table is absent", () => {
+    const path = tempPath();
+    const raw = new Database(path, { create: true });
+    raw.exec(
+      `CREATE TABLE messages (id TEXT PRIMARY KEY, jid TEXT NOT NULL, from_me INTEGER NOT NULL, sender TEXT NOT NULL, text TEXT, media_type TEXT, timestamp INTEGER NOT NULL, push_name TEXT)`,
+    );
+    raw.close();
+
+    const archive = new WhatsAppArchive(path, { readonly: true });
+    expect(archive.savedContacts()).toEqual(new Set());
+    archive.close();
+  });
 });
