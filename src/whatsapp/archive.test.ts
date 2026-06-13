@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -70,5 +71,71 @@ describe("WhatsAppArchive", () => {
       },
     ]);
     second.close();
+  });
+
+  test("stores and reads back chat names; upsert overwrites", () => {
+    const archive = createArchive();
+    archive.upsertChatName("person@s.whatsapp.net", "Alice", false);
+    archive.upsertChatName("group@g.us", "Trip 2026", true);
+    archive.upsertChatName("person@s.whatsapp.net", "Alice Smith", false);
+
+    expect(archive.chatNames()).toEqual(
+      new Map([
+        ["person@s.whatsapp.net", "Alice Smith"],
+        ["group@g.us", "Trip 2026"],
+      ]),
+    );
+    archive.close();
+  });
+
+  test("lists only messages inside the window, ordered by jid then time", () => {
+    const archive = createArchive();
+    const at = (jid: string, ts: number, id: string) => ({
+      id,
+      jid,
+      fromMe: false,
+      sender: jid,
+      text: `m-${id}`,
+      mediaType: null,
+      timestamp: ts,
+      pushName: null,
+    });
+    archive.storeMessages([
+      at("b@s.whatsapp.net", 100, "1"),
+      at("a@s.whatsapp.net", 150, "2"),
+      at("a@s.whatsapp.net", 250, "3"), // outside window (end is exclusive)
+      at("a@s.whatsapp.net", 50, "4"), // before window
+    ]);
+
+    expect(archive.listMessagesInWindow(100, 250).map((m) => m.id)).toEqual(["2", "1"]);
+    archive.close();
+  });
+
+  test("opens read-only without running DDL and reads existing data", () => {
+    const path = tempPath();
+    const writer = new WhatsAppArchive(path);
+    writer.storeMessages([
+      { id: "1", jid: "p@s.whatsapp.net", fromMe: false, sender: "p@s.whatsapp.net", text: "hi", mediaType: null, timestamp: 200, pushName: null },
+    ]);
+    writer.upsertChatName("p@s.whatsapp.net", "Pat", false);
+    writer.close();
+
+    const reader = new WhatsAppArchive(path, { readonly: true });
+    expect(reader.listMessagesInWindow(100, 300).map((m) => m.text)).toEqual(["hi"]);
+    expect(reader.chatNames()).toEqual(new Map([["p@s.whatsapp.net", "Pat"]]));
+    reader.close();
+  });
+
+  test("chatNames returns an empty map when the chats table is absent", () => {
+    const path = tempPath();
+    const raw = new Database(path, { create: true });
+    raw.exec(
+      `CREATE TABLE messages (id TEXT PRIMARY KEY, jid TEXT NOT NULL, from_me INTEGER NOT NULL, sender TEXT NOT NULL, text TEXT, media_type TEXT, timestamp INTEGER NOT NULL, push_name TEXT)`,
+    );
+    raw.close();
+
+    const archive = new WhatsAppArchive(path, { readonly: true });
+    expect(archive.chatNames()).toEqual(new Map());
+    archive.close();
   });
 });
