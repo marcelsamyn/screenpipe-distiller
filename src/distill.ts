@@ -12,7 +12,7 @@ import { loadWhatsAppConversations } from "./whatsapp/conversations";
 export interface DistillDeps {
   fetchDay: (dayKey: string) => Promise<DayDigest>;
   curate: (digest: DayDigest) => Promise<CuratedDoc>;
-  upload: (p: DocPayload) => Promise<{ jobId: string }>;
+  upload: (p: DocPayload, updateExisting: boolean) => Promise<{ jobId: string }>;
 }
 
 function defaultDeps(config: Config): DistillDeps {
@@ -39,7 +39,7 @@ function defaultDeps(config: Config): DistillDeps {
   return {
     fetchDay: (dayKey) => fetchDayActivity(client, dayKey, config.USER_TIMEZONE, loadConversations),
     curate: (digest) => curateDigest(digest, config),
-    upload: (p) => uploadDocument(p, config),
+    upload: (p, updateExisting) => uploadDocument(p, config, updateExisting),
   };
 }
 
@@ -47,18 +47,21 @@ export async function runDistill(
   dayKey: string,
   config: Config,
   deps: DistillDeps = defaultDeps(config),
-  options: { dryRun?: boolean } = {},
+  options: { dryRun?: boolean; updateExisting?: boolean } = {},
 ): Promise<{ jobId: string | null; isEmptyDay: boolean; markdown: string }> {
   const digest = await deps.fetchDay(dayKey);
   const doc = await deps.curate(digest);
   if (options.dryRun) {
     return { jobId: null, isEmptyDay: doc.isEmptyDay, markdown: doc.markdown };
   }
-  const { jobId } = await deps.upload({
-    id: `screenpipe-activity-${dayKey}`,
-    content: doc.markdown,
-    title: `Computer activity — ${dayKey}`,
-    timestampIso: `${dayKey}T12:00:00Z`,
-  });
+  const { jobId } = await deps.upload(
+    {
+      id: `screenpipe-activity-${dayKey}`,
+      content: doc.markdown,
+      title: `Computer activity — ${dayKey}`,
+      timestampIso: `${dayKey}T12:00:00Z`,
+    },
+    options.updateExisting ?? false,
+  );
   return { jobId, isEmptyDay: doc.isEmptyDay, markdown: doc.markdown };
 }

@@ -1,7 +1,8 @@
 /**
  * Uploads a curated activity document to a memory backend — either directly to
- * Assistant Memory or via the Petals proxy. Idempotent on document.id; retries
- * network/5xx with backoff.
+ * Assistant Memory or via the Petals proxy. Keyed on document.id; pass
+ * `updateExisting` to replace a prior document with the same id (otherwise the
+ * backend rejects the re-ingest as a conflict). Retries network/5xx with backoff.
  */
 import { z } from "zod";
 import type { Config } from "./config";
@@ -34,7 +35,7 @@ interface UploadTarget {
   body: unknown;
 }
 
-export function resolveTarget(p: DocPayload, config: Config): UploadTarget {
+export function resolveTarget(p: DocPayload, config: Config, updateExisting: boolean): UploadTarget {
   const document = buildDocument(p);
   if (config.UPLOAD_MODE === "petals") {
     if (!config.PETALS_API_KEY) {
@@ -43,7 +44,7 @@ export function resolveTarget(p: DocPayload, config: Config): UploadTarget {
     return {
       url: `${config.PETALS_BASE_URL}/api/memory/ingest/document`,
       headers: { "Content-Type": "application/json", "x-api-key": config.PETALS_API_KEY },
-      body: { document },
+      body: { document, updateExisting },
     };
   }
   if (!config.MEMORY_USER_ID) {
@@ -54,7 +55,7 @@ export function resolveTarget(p: DocPayload, config: Config): UploadTarget {
   return {
     url: `${config.MEMORY_API_URL}/ingest/document`,
     headers,
-    body: { userId: config.MEMORY_USER_ID, document },
+    body: { userId: config.MEMORY_USER_ID, document, updateExisting },
   };
 }
 
@@ -66,11 +67,12 @@ interface UploadDeps {
 export async function uploadDocument(
   p: DocPayload,
   config: Config,
+  updateExisting: boolean,
   deps: UploadDeps = {},
 ): Promise<{ jobId: string }> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-  const { url, headers, body } = resolveTarget(p, config);
+  const { url, headers, body } = resolveTarget(p, config, updateExisting);
   const init: RequestInit = { method: "POST", headers, body: JSON.stringify(body) };
 
   const maxAttempts = 4;

@@ -19,6 +19,19 @@ describe("runDistill", () => {
     expect(uploadedId).toBe("screenpipe-activity-2026-06-09");
   });
 
+  test("passes updateExisting through to the upload dep (default false)", async () => {
+    const digest: DayDigest = { dayKey: "2026-06-09", apps: [], audio: [], conversations: [], totalFrames: 0, isEmpty: true };
+    const seen: boolean[] = [];
+    const deps: DistillDeps = {
+      fetchDay: async () => digest,
+      curate: async () => ({ markdown: "# doc", isEmptyDay: true }),
+      upload: async (_p, updateExisting) => { seen.push(updateExisting); return { jobId: "job_u" }; },
+    };
+    await runDistill("2026-06-09", config, deps);
+    await runDistill("2026-06-09", config, deps, { updateExisting: true });
+    expect(seen).toEqual([false, true]);
+  });
+
   test("dry-run skips upload and returns the curated markdown", async () => {
     const digest: DayDigest = {
       dayKey: "2026-06-09",

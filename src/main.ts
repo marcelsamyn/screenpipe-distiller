@@ -1,4 +1,4 @@
-/** CLI: `bun run distill [--date YYYY-MM-DD]` (default: yesterday). */
+/** CLI: `bun run distill [--date YYYY-MM-DD] [--dry-run] [--update-existing]` (default: yesterday). */
 import { loadConfig } from "./config";
 import { runDistill } from "./distill";
 import { targetDayKey } from "./date-utils";
@@ -18,8 +18,10 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const dayKey = parseDateArg(argv, config.USER_TIMEZONE);
   const dryRun = argv.includes("--dry-run");
-  console.log(`[distill] day=${dayKey} tz=${config.USER_TIMEZONE}${dryRun ? " (dry-run, not uploading)" : ""}`);
-  const { jobId, isEmptyDay, markdown } = await runDistill(dayKey, config, undefined, { dryRun });
+  const updateExisting = argv.includes("--update-existing");
+  const flags = [dryRun ? "dry-run, not uploading" : null, updateExisting ? "update-existing" : null].filter(Boolean);
+  console.log(`[distill] day=${dayKey} tz=${config.USER_TIMEZONE}${flags.length ? ` (${flags.join(", ")})` : ""}`);
+  const { jobId, isEmptyDay, markdown } = await runDistill(dayKey, config, undefined, { dryRun, updateExisting });
   if (dryRun) {
     console.log("\n----- curated document (NOT uploaded) -----\n");
     console.log(markdown);

@@ -14,7 +14,7 @@ Screenpipe (local capture) -> condense -> curate (LLM) -> ingest into Assistant 
 
 - **condense** (deterministic, no LLM): groups a day's frames by app / window / URL, keeps the most recent snippets for conversation channels and the longest substantive blocks for everything else, drops noise — turning thousands of frames into a few KB.
 - **curate** (one LLM call via OpenRouter): writes a durable activity document under a strict contract (durable over ephemeral, no action items, exposure != intent, no cross-project misattribution, capture notable knowledge).
-- **ingest**: uploads as a `personal`-scope document, idempotent per day (re-running a day replaces it).
+- **ingest**: uploads as a `personal`-scope document keyed per day; re-running a day is rejected as a conflict unless you pass `--update-existing`, which replaces the prior doc (handy after fixing curation).
 
 ## Architecture
 
@@ -64,6 +64,7 @@ Get your Screenpipe token with `screenpipe auth token`. At minimum set `SCREENPI
 bun run distill                                # distill (today after noon, else yesterday)
 bun run distill --date 2026-06-05              # a specific day
 bun run distill --date 2026-06-05 --dry-run    # preview the document without uploading
+bun run distill --date 2026-06-05 --update-existing  # re-upload, replacing the existing day's doc
 bun run health-check                           # check Screenpipe recording health
 bun test                                       # run the test suite
 ```
