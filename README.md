@@ -12,9 +12,29 @@ It is deliberately **not** a to-do generator. The curation contract forbids acti
 Screenpipe (local capture) -> condense -> curate (LLM) -> ingest into Assistant Memory
 ```
 
-- **condense** (deterministic, no LLM): groups a day's frames by app / window / URL, keeps the longest substantive text blocks, drops noise — turning thousands of frames into a few KB.
+- **condense** (deterministic, no LLM): groups a day's frames by app / window / URL, keeps the most recent snippets for conversation channels and the longest substantive blocks for everything else, drops noise — turning thousands of frames into a few KB.
 - **curate** (one LLM call via OpenRouter): writes a durable activity document under a strict contract (durable over ephemeral, no action items, exposure != intent, no cross-project misattribution, capture notable knowledge).
 - **ingest**: uploads as a `personal`-scope document, idempotent per day (re-running a day replaces it).
+
+## Architecture
+
+The distiller runs a four-stage pipeline once per day:
+
+```mermaid
+flowchart LR
+    SP[("Screenpipe<br/>local REST API")] -->|OCR · a11y · audio · input| FETCH["fetchDayActivity<br/>(searchAll)"]
+    FETCH --> COND["condenseItems<br/>bucket · dedupe · cap"]
+    COND --> CUR["curateDigest<br/>1 LLM call (OpenRouter)"]
+    CUR --> UP["uploadDocument<br/>Assistant Memory / Petals"]
+
+    subgraph condense [condenseItems]
+        direction TB
+        CLS["classifyChannel<br/>per frame"] --> BUCKET["bucket by channel<br/>WhatsApp (web), Gmail, …"]
+        BUCKET --> RANK["rank + cap<br/>comms: recency, 25 snippets<br/>other: longest, 10 snippets"]
+    end
+```
+
+**Browser-conversation routing** lives inside `condenseItems`: each captured frame is classified by `classifyChannel` (`src/channels.ts`), which re-buckets browser-based conversations like WhatsApp Web or Gmail under their own synthetic label (`WhatsApp (web)`, `Gmail`) and flags them for conversation treatment — a larger, recency-first text budget and protection from the top-N app cutoff — so they no longer drown inside a single generic browser bucket.
 
 ## Requirements
 
@@ -31,6 +51,10 @@ cp .env.example .env   # then fill it in
 ```
 
 Get your Screenpipe token with `screenpipe auth token`. At minimum set `SCREENPIPE_API_KEY`, `OPENROUTER_API_KEY`, `USER_NAME`, and — for the default direct mode — `MEMORY_API_URL` + `MEMORY_USER_ID`.
+
+To connect a personal WhatsApp account through Screenpipe without installing
+the Screenpipe desktop app, follow the
+[headless WhatsApp connector guide](docs/whatsapp-connector.md).
 
 ## Usage
 

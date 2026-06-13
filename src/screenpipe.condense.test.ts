@@ -99,4 +99,46 @@ describe("condenseItems", () => {
     expect(digest.apps.find((a) => a.app === "Slack")).toBeDefined();
     warn.mockRestore();
   });
+
+  test("splits a WhatsApp-Web frame out of the generic Chrome bucket", () => {
+    const items: SearchItem[] = [
+      ocr("Google Chrome", "GitHub - foo/bar", "2026-06-12T09:00:00Z", "https://github.com/foo/bar", "foo/bar"),
+      ocr("Google Chrome", "Lorena: thanks so much!! 🎉", "2026-06-12T09:05:00Z", "https://web.whatsapp.com/", "WhatsApp"),
+    ];
+    const digest = condenseItems(items, "2026-06-12");
+    const whatsapp = digest.apps.find((a) => a.app === "WhatsApp (web)");
+    const chrome = digest.apps.find((a) => a.app === "Google Chrome");
+    expect(whatsapp).toBeDefined();
+    expect(whatsapp?.sampleText).toContain("Lorena: thanks so much!! 🎉");
+    expect(chrome).toBeDefined();
+    expect(chrome?.sampleText).toContain("GitHub - foo/bar");
+    expect(chrome?.sampleText).not.toContain("Lorena: thanks so much!! 🎉");
+  });
+
+  test("gives a browser comms channel the larger, recency-first budget", () => {
+    const items: SearchItem[] = Array.from({ length: 20 }, (_, i) =>
+      ocr(
+        "Google Chrome",
+        `message ${String(i).padStart(2, "0")}`,
+        `2026-06-12T09:${String(i).padStart(2, "0")}:00Z`,
+        "https://web.whatsapp.com/",
+        "WhatsApp",
+      ),
+    );
+    const digest = condenseItems(items, "2026-06-12");
+    const whatsapp = digest.apps.find((a) => a.app === "WhatsApp (web)");
+    expect(whatsapp?.sampleText.length).toBe(20); // above the non-comms cap of 10
+    expect(whatsapp?.sampleText[0]).toBe("message 19"); // most recent first
+  });
+
+  test("never drops a low-frame browser comms channel", () => {
+    const items: SearchItem[] = [
+      ...Array.from({ length: 25 }, (_, i) => ocr(`App${i}`, "x".repeat(60), `2026-06-12T08:00:0${i % 10}Z`)),
+      ocr("Google Chrome", "Lorena: see you tonight", "2026-06-12T09:00:00Z", "https://web.whatsapp.com/", "WhatsApp"),
+    ];
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const digest = condenseItems(items, "2026-06-12");
+    expect(digest.apps.find((a) => a.app === "WhatsApp (web)")).toBeDefined();
+    warn.mockRestore();
+  });
 });
