@@ -22,6 +22,12 @@ interface BaileysChat {
   subject?: string | null;
 }
 
+interface PushNameMessage {
+  sender: string;
+  fromMe: boolean;
+  pushName?: string | null;
+}
+
 function firstNonEmpty(...values: (string | null | undefined)[]): string | null {
   for (const value of values) {
     const trimmed = value?.trim();
@@ -45,5 +51,18 @@ export function groupNameUpdates(chats: readonly BaileysChat[]): ChatNameUpdate[
     return chat.id && chat.id.endsWith("@g.us") && name
       ? [{ jid: chat.id, name, isGroup: true }]
       : [];
+  });
+}
+
+/**
+ * Contact names carried on live-delivered messages. `pushName` is the sender's
+ * own display name and is the one name signal reliably present on inbound
+ * messages (history sync omits it). Keyed by the message's resolved sender jid
+ * (the group participant, or the 1:1 chat jid); `fromMe` and blanks are skipped.
+ */
+export function pushNameUpdates(messages: readonly PushNameMessage[]): ChatNameUpdate[] {
+  return messages.flatMap((message) => {
+    const name = message.pushName?.trim();
+    return !message.fromMe && name ? [{ jid: message.sender, name, isGroup: false }] : [];
   });
 }

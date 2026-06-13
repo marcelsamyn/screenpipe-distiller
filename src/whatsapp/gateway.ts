@@ -9,9 +9,9 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import pino from "pino";
 import { z } from "zod";
-import { WhatsAppArchive } from "./archive";
+import { WhatsAppArchive, type ArchivedMessage } from "./archive";
 import { toArchivedMessage } from "./message";
-import { contactNameUpdates, groupNameUpdates, type ChatNameUpdate } from "./names";
+import { contactNameUpdates, groupNameUpdates, pushNameUpdates, type ChatNameUpdate } from "./names";
 
 process.umask(0o077);
 
@@ -33,13 +33,13 @@ const disconnectErrorSchema = z.object({
   output: z.object({ statusCode: z.number() }),
 });
 
-const storeMessages = (messages: readonly WAMessage[]): number => {
+const storeMessages = (messages: readonly WAMessage[]): ArchivedMessage[] => {
   const archived = messages.flatMap((message) => {
     const result = toArchivedMessage(message);
     return result ? [result] : [];
   });
   archive.storeMessages(archived);
-  return archived.length;
+  return archived;
 };
 
 const applyNames = (updates: readonly ChatNameUpdate[]): void => {
@@ -110,16 +110,17 @@ const start = async (): Promise<void> => {
 
   socket.ev.on("creds.update", saveCreds);
   socket.ev.on("messaging-history.set", ({ messages, contacts, chats, syncType, chunkOrder }) => {
-    const stored = storeMessages(messages);
+    const archived = storeMessages(messages);
     applyNames(contactNameUpdates(contacts ?? []));
     applyNames(groupNameUpdates(chats ?? []));
+    applyNames(pushNameUpdates(archived));
     historyChunks += 1;
-    historyMessages += stored;
+    historyMessages += archived.length;
     lastHistorySyncAt = new Date().toISOString();
-    console.log(JSON.stringify({ type: "history-sync", syncType, chunkOrder, stored }));
+    console.log(JSON.stringify({ type: "history-sync", syncType, chunkOrder, stored: archived.length }));
   });
   socket.ev.on("messages.upsert", ({ messages }) => {
-    storeMessages(messages);
+    applyNames(pushNameUpdates(storeMessages(messages)));
   });
   socket.ev.on("contacts.upsert", (contacts) => applyNames(contactNameUpdates(contacts)));
   socket.ev.on("contacts.update", (contacts) => applyNames(contactNameUpdates(contacts)));

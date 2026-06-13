@@ -267,11 +267,10 @@ name-quality robustness items were deferred to keep the merge at approved scope:
   (and some 1:1s) as `@lid` JIDs, while the `chats` name table is keyed by the
   `@s.whatsapp.net` phone JID. Mismatched keys fall through to the `+number` fallback.
   A proper fix maps `@lid` ↔ phone JID via Baileys' LID mapping before resolving names.
-- **`pushName` enrichment (highest value).** `messages.upsert` (live delivery) is the
-  one place a sender's name is reliably present (`pushName`), yet it isn't written to
-  the `chats` table. Wiring `pushName` → `upsertChatName(sender, pushName, false)` for
-  inbound messages would meaningfully improve 1:1 name coverage. Needs a small
-  `storeMessages` return-type refactor in `gateway.ts` (untested glue — handle with care).
+- **`pushName` enrichment — DONE (2026-06-13).** `storeMessages` now returns the
+  archived messages, and both message handlers feed them through `pushNameUpdates`
+  (`names.ts`) → `upsertChatName(sender, pushName, false)` for inbound messages, so a
+  sender's live display name is captured for 1:1 and group-participant resolution.
 - **Neutral label for non-phone JIDs.** `phoneFromJid` renders `+<user>` for any
   unresolved JID; gate the `+` on an `@s.whatsapp.net` domain so `@lid`/non-MSISDN
   identifiers don't render as bogus phone numbers (depends on the `@lid` item).
