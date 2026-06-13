@@ -15,10 +15,25 @@ export interface AudioSnippet {
   timestamp: string;
 }
 
+export interface ConversationMessage {
+  sender: string;
+  fromMe: boolean;
+  text: string;
+  timestamp: string; // ISO
+}
+
+export interface Conversation {
+  channel: string; // e.g. "WhatsApp"
+  chatName: string;
+  isGroup: boolean;
+  messages: ConversationMessage[];
+}
+
 export interface DayDigest {
   dayKey: string;
   apps: AppActivity[];
   audio: AudioSnippet[];
+  conversations: Conversation[];
   totalFrames: number;
   isEmpty: boolean;
 }

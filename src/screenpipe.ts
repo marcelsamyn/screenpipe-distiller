@@ -3,7 +3,7 @@
  * Aliases: screenpipe search, activity digest, /search client.
  */
 import { z } from "zod";
-import type { AppActivity, DayDigest } from "./types";
+import type { AppActivity, Conversation, DayDigest } from "./types";
 import { dayWindowUtc } from "./date-utils";
 import { classifyChannel } from "./channels";
 
@@ -104,7 +104,11 @@ function pushDistinct(arr: string[], value: string | null | undefined): void {
 
 const SCREEN_TYPES = new Set(["OCR", "UI", "Accessibility"]);
 
-export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
+export function condenseItems(
+  items: SearchItem[],
+  dayKey: string,
+  opts: { suppressBucket?: (key: string) => boolean } = {},
+): DayDigest {
   const byApp = new Map<string, AppActivityAcc>();
   const audio: DayDigest["audio"] = [];
   let totalFrames = 0;
@@ -124,6 +128,7 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
       continue;
     }
     const { bucketKey, isComms } = classifyChannel(c);
+    if (opts.suppressBucket?.(bucketKey)) continue;
     // isComms is invariant for a given bucketKey — classifyChannel guarantees it,
     // so the first frame's value applies to the whole bucket.
     const acc = byApp.get(bucketKey) ?? newAcc(isComms);
@@ -183,7 +188,15 @@ export function condenseItems(items: SearchItem[], dayKey: string): DayDigest {
     );
   }
 
-  return { dayKey, apps, audio, totalFrames, isEmpty: apps.length === 0 && audio.length === 0 };
+  const conversations: Conversation[] = [];
+  return {
+    dayKey,
+    apps,
+    audio,
+    conversations,
+    totalFrames,
+    isEmpty: apps.length === 0 && audio.length === 0 && conversations.length === 0,
+  };
 }
 
 interface AppActivityAcc {

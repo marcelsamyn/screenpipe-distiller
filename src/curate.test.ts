@@ -9,6 +9,7 @@ const nonEmpty: DayDigest = {
   dayKey: "2026-06-09",
   apps: [{ app: "Ghostty", windows: [], urls: [], sampleText: ["x"], firstSeen: "2026-06-09T10:00:00Z", lastSeen: "2026-06-09T11:00:00Z", frames: 3 }],
   audio: [],
+  conversations: [],
   totalFrames: 3,
   isEmpty: false,
 };
@@ -17,7 +18,7 @@ describe("curateDigest", () => {
   test("short-circuits an empty day without calling the LLM", async () => {
     let called = false;
     const client: ChatClient = { create: async () => { called = true; return { content: "x" }; } };
-    const empty: DayDigest = { dayKey: "2026-06-09", apps: [], audio: [], totalFrames: 0, isEmpty: true };
+    const empty: DayDigest = { dayKey: "2026-06-09", apps: [], audio: [], conversations: [], totalFrames: 0, isEmpty: true };
     const doc = await curateDigest(empty, config, client);
     expect(called).toBe(false);
     expect(doc.isEmptyDay).toBe(true);

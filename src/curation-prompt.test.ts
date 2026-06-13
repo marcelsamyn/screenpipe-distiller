@@ -6,6 +6,7 @@ const digest: DayDigest = {
   dayKey: "2026-06-09",
   apps: [{ app: "Ghostty", windows: ["zsh"], urls: [], sampleText: ["$ bun test"], firstSeen: "2026-06-09T10:00:00Z", lastSeen: "2026-06-09T11:00:00Z", frames: 12 }],
   audio: [{ speaker: "Marcel", text: "let's ship it", timestamp: "2026-06-09T11:00:00Z" }],
+  conversations: [],
   totalFrames: 12,
   isEmpty: false,
 };

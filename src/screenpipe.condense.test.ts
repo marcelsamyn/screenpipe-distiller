@@ -141,4 +141,20 @@ describe("condenseItems", () => {
     expect(digest.apps.find((a) => a.app === "WhatsApp (web)")).toBeDefined();
     warn.mockRestore();
   });
+
+  test("suppressBucket drops matching buckets entirely", () => {
+    const items: SearchItem[] = [
+      ocr("WhatsApp", "Lorena: hi", "2026-06-12T09:00:00Z"),
+      ocr("Zed", "code", "2026-06-12T09:01:00Z"),
+    ];
+    const digest = condenseItems(items, "2026-06-12", {
+      suppressBucket: (key) => key.toLowerCase().includes("whatsapp"),
+    });
+    expect(digest.apps.find((a) => a.app === "WhatsApp")).toBeUndefined();
+    expect(digest.apps.find((a) => a.app === "Zed")).toBeDefined();
+  });
+
+  test("digest carries an empty conversations array by default", () => {
+    expect(condenseItems([], "2026-06-12").conversations).toEqual([]);
+  });
 });
