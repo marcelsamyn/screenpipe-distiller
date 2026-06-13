@@ -3,3 +3,9 @@ node_modules/
 *.log
 bun.lock
 CLAUDE.md
+
+# WhatsApp sidecar local state — never commit message DBs or live session creds
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+**/whatsapp/session/

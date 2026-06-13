@@ -52,9 +52,10 @@ cp .env.example .env   # then fill it in
 
 Get your Screenpipe token with `screenpipe auth token`. At minimum set `SCREENPIPE_API_KEY`, `OPENROUTER_API_KEY`, `USER_NAME`, and — for the default direct mode — `MEMORY_API_URL` + `MEMORY_USER_ID`.
 
-To connect a personal WhatsApp account through Screenpipe without installing
-the Screenpipe desktop app, follow the
-[headless WhatsApp connector guide](docs/whatsapp-connector.md).
+### Message ingestion
+
+- [Understand captured and structured message-ingestion sources](docs/messaging-connectors.md)
+- [Pair WhatsApp for persistent structured ingestion](docs/whatsapp-connector.md)
 
 ## Usage
 

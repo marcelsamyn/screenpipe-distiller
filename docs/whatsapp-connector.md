@@ -1,12 +1,66 @@
-# Connect WhatsApp Without the Screenpipe Desktop App
+# Pair WhatsApp for Persistent Message Ingestion
+
+This project includes an independent WhatsApp ingestion sidecar. Use it instead
+of Screenpipe's generated gateway when you want the best chance of receiving
+historical messages and need messages to survive restarts.
+
+The sidecar:
+
+- pairs as a macOS desktop companion and requests full history;
+- accepts every Baileys history-sync type;
+- stores history and new messages in
+  `~/.screenpipe-distiller/whatsapp/messages.sqlite`;
+- exposes its read API on `http://127.0.0.1:3036`;
+- runs independently from Screenpipe, so Screenpipe updates cannot overwrite it.
+
+> [!WARNING]
+> The sidecar uses the unofficial Baileys WhatsApp Web integration. WhatsApp may
+> restrict accounts that use unofficial integrations. Use it at your own risk.
+
+## Install and Pair the Persistent Sidecar
+
+Install its launch agent:
+
+```bash
+./scripts/install-whatsapp-sidecar.sh
+```
+
+Wait for a QR payload and render it:
+
+```bash
+until QR="$(curl -fsS http://127.0.0.1:3036/qr 2>/dev/null)"; do sleep 1; done
+qrencode -t ANSIUTF8 "$QR"
+```
+
+In WhatsApp, open **Settings > Linked Devices > Link a Device**, then scan the
+QR code. Keep the phone online while the initial history sync runs.
+
+Monitor progress:
+
+```bash
+watch -n 2 'curl -fsS http://127.0.0.1:3036/status | jq'
+tail -f whatsapp.out.log
+```
+
+Read persisted messages:
+
+```bash
+curl -fsS http://127.0.0.1:3036/chats | jq
+curl -fsS "http://127.0.0.1:3036/messages?jid=PHONE@s.whatsapp.net&limit=100" | jq
+```
+
+WhatsApp controls how much history a newly linked companion receives. Requesting
+full history improves the odds but cannot guarantee a complete archive.
+
+## Screenpipe's Built-In Gateway
 
 Screenpipe supports two different WhatsApp integrations:
 
 - The personal WhatsApp gateway pairs an existing account using a QR code, like
-  WhatsApp Web. This is the integration described below.
+  WhatsApp Web. It exposes recent chats and messages for reading. This is the
+  integration described below.
 - `screenpipe connection whatsapp set` configures Meta's official WhatsApp
-  Cloud API. It expects `phone_number_id` and `access_token`; it does not start
-  QR pairing.
+  Cloud API. It is send-only and does not help message ingestion.
 
 The Screenpipe desktop app starts personal WhatsApp pairing through the local
 Screenpipe HTTP API. You can call the same API from a terminal.
@@ -85,7 +139,7 @@ screenpipe connection get whatsapp --json
 Screenpipe stores the paired session under `~/.screenpipe/whatsapp-session/`
 and reconnects it when the Screenpipe daemon restarts.
 
-## Use the Local Gateway
+## Read Messages from the Local Gateway
 
 Once paired, Screenpipe exposes the WhatsApp gateway on
 `http://localhost:3035`:
@@ -97,18 +151,19 @@ curl -fsS http://localhost:3035/contacts | jq
 curl -fsS "http://localhost:3035/messages?phone=+32123456789&limit=50" | jq
 ```
 
-Send a message:
+The contacts, chats, and message history exposed by Screenpipe's gateway are held in
+memory. Screenpipe keeps at most 200 messages per chat and rebuilds state from
+WhatsApp events and any history synchronization received after startup. This
+is not a complete durable WhatsApp archive.
 
-```bash
-curl -fsS -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"to":"+32123456789","text":"Hello from Screenpipe"}' \
-  http://localhost:3035/send | jq
-```
+With Baileys `7.0.0-rc13`, Screenpipe's current generated gateway also reads the
+history event using an outdated nested message shape. It can crash when actual
+historical messages arrive. The independent sidecar uses the current flat
+`WAMessage[]` event contract.
 
-The contacts, chats, and message history exposed by the gateway are held in
-memory and rebuilt from WhatsApp events and history synchronization after
-startup.
+`screenpipe-distiller` does not yet fetch this gateway. Pairing makes the read
+API available for future structured ingestion; today, WhatsApp messages enter
+the distiller through Screenpipe's visible-app or WhatsApp Web capture.
 
 ## Disconnect
 
@@ -120,17 +175,6 @@ curl -fsS -X POST \
   http://localhost:3030/connections/whatsapp/disconnect | jq
 ```
 
-## Official WhatsApp Cloud API
-
-To configure the separate official Meta Cloud API connector instead:
-
-```bash
-screenpipe connection whatsapp set \
-  phone_number_id=123456789012345 \
-  access_token=EAAB...
-
-screenpipe connection test whatsapp
-```
-
-This credential-based connector sends messages through Meta's Graph API. It
-does not expose the personal WhatsApp gateway or use QR pairing.
+Do not configure the separate official WhatsApp Cloud API connector for this
+project. It sends messages through Meta's Graph API and cannot read personal
+WhatsApp conversations.
