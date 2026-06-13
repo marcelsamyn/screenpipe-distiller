@@ -29,4 +29,17 @@ describe("loadConfig", () => {
   test("direct mode requires MEMORY_USER_ID", () => {
     expect(() => loadConfig({ SCREENPIPE_API_KEY: "x", OPENROUTER_API_KEY: "o", UPLOAD_MODE: "direct" })).toThrow();
   });
+
+  test("defaults the WhatsApp connector to auto and expands the archive ~path", () => {
+    const cfg = loadConfig(directBase);
+    expect(cfg.WHATSAPP_CONNECTOR).toBe("auto");
+    expect(cfg.WHATSAPP_ARCHIVE_PATH.startsWith("~")).toBe(false);
+    expect(cfg.WHATSAPP_ARCHIVE_PATH.endsWith("/.screenpipe-distiller/whatsapp/messages.sqlite")).toBe(true);
+  });
+
+  test("honors an explicit connector value and absolute archive path", () => {
+    const cfg = loadConfig({ ...directBase, WHATSAPP_CONNECTOR: "off", WHATSAPP_ARCHIVE_PATH: "/tmp/wa.sqlite" });
+    expect(cfg.WHATSAPP_CONNECTOR).toBe("off");
+    expect(cfg.WHATSAPP_ARCHIVE_PATH).toBe("/tmp/wa.sqlite");
+  });
 });
