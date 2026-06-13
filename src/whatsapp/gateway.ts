@@ -3,6 +3,7 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
+  type AuthenticationState,
   type WAMessage,
 } from "@whiskeysockets/baileys";
 import { mkdirSync } from "node:fs";
@@ -46,6 +47,38 @@ const applyNames = (updates: readonly ChatNameUpdate[]): void => {
   updates.forEach((update) =>
     archive.upsertChatName(update.jid, update.name, update.isGroup, update.saved),
   );
+};
+
+// App-state patch collections that carry contact records. Contacts live here;
+// a full snapshot of them re-emits every address-book name.
+const CONTACT_PATCH_COLLECTIONS = [
+  "critical_block",
+  "critical_unblock_low",
+  "regular_high",
+  "regular_low",
+  "regular",
+] as const;
+let contactsBackfilled = false;
+
+/**
+ * WhatsApp only re-emits every address-book name — each carrying BOTH its @lid
+ * and phone-number identity — when app-state is synced as a fresh snapshot (from
+ * version 0). The initial pairing sync can miss names (e.g. when interrupted),
+ * leaving LID-migrated contacts as masked numbers under their phone jid. Once per
+ * process, clear the cached app-state versions and force a full resync so the
+ * `contacts.upsert` handler receives complete, dual-keyable names.
+ */
+const backfillContacts = async (
+  socket: ReturnType<typeof makeWASocket>,
+  keys: AuthenticationState["keys"],
+): Promise<void> => {
+  if (contactsBackfilled) return;
+  await keys.set({
+    "app-state-sync-version": Object.fromEntries(CONTACT_PATCH_COLLECTIONS.map((name) => [name, null])),
+  });
+  await socket.resyncAppState(CONTACT_PATCH_COLLECTIONS, true);
+  contactsBackfilled = true;
+  console.log(JSON.stringify({ type: "contacts-backfill", collections: CONTACT_PATCH_COLLECTIONS.length }));
 };
 
 const backfillGroupNames = async (socket: ReturnType<typeof makeWASocket>): Promise<void> => {
@@ -139,6 +172,9 @@ const start = async (): Promise<void> => {
       name = socket.user?.name ?? null;
       phone = socket.user?.id.split(":")[0] ?? null;
       console.log(JSON.stringify({ type: "connected", name, phone }));
+      void backfillContacts(socket, state.keys).catch((error) =>
+        console.error("contacts backfill failed:", error),
+      );
       void backfillGroupNames(socket);
     }
     if (connection !== "close") return;
