@@ -257,3 +257,24 @@ Run: `bun test` and `bun run type-check`.
 - Backfilling names for very old history if Baileys does not resend `contacts`/`chats`
   on reconnect (live events + `groupMetadata` cover the active set).
 - Audio-transcription backlog (separate investigation; mic inactive, segments pending).
+
+### Follow-ups surfaced in the post-implementation review (2026-06-13)
+
+The implementation was reviewed and approved (no critical/important issues). These
+name-quality robustness items were deferred to keep the merge at approved scope:
+
+- **`@lid` sender resolution.** Baileys 7.x increasingly delivers group participants
+  (and some 1:1s) as `@lid` JIDs, while the `chats` name table is keyed by the
+  `@s.whatsapp.net` phone JID. Mismatched keys fall through to the `+number` fallback.
+  A proper fix maps `@lid` ↔ phone JID via Baileys' LID mapping before resolving names.
+- **`pushName` enrichment (highest value).** `messages.upsert` (live delivery) is the
+  one place a sender's name is reliably present (`pushName`), yet it isn't written to
+  the `chats` table. Wiring `pushName` → `upsertChatName(sender, pushName, false)` for
+  inbound messages would meaningfully improve 1:1 name coverage. Needs a small
+  `storeMessages` return-type refactor in `gateway.ts` (untested glue — handle with care).
+- **Neutral label for non-phone JIDs.** `phoneFromJid` renders `+<user>` for any
+  unresolved JID; gate the `+` on an `@s.whatsapp.net` domain so `@lid`/non-MSISDN
+  identifiers don't render as bogus phone numbers (depends on the `@lid` item).
+- **Sidecar log location.** `install-whatsapp-sidecar.sh` writes `whatsapp.{out,err}.log`
+  into the repo tree (gitignored, so safe); moving them under
+  `~/.screenpipe-distiller/whatsapp/` would be tidier. Cosmetic.
