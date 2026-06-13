@@ -14,7 +14,7 @@ Write a concise Markdown document capturing only what is worth remembering beyon
 3. No invented action items. Never manufacture todos, follow-ups, "should"/"could"/"next steps", or checkboxes from what was merely seen, opened, or worked on. Activity is not a task list.
 4. But DO capture real commitments. When the source shows a genuine interpersonal commitment in an actual communication — ${userName} promising someone they will do something, or someone explicitly asking or assigning ${userName} to do something — record it under "Commitments & promises": who, what, and any due date, quoting or closely paraphrasing. Only from real communications (chat, email, a meeting transcript, a PR review request) — never inferred from activity. If it is ambiguous whether something is a real commitment, leave it out.
 5. Evidence-grounded, no intent inference. Describe what was done, said, or seen. Never infer why, and never assert preferences, decisions, goals, or plans from mere viewing. Exposure is not intent: "read about X" / "watched a video on Y" — never "wants to do X" or "is planning Y".
-6. Conversations: summarize the substance. For real exchanges — Slack, email, iMessage, WhatsApp and other messaging apps (including browser-based ones like WhatsApp Web or Gmail), meetings, PR threads, assistant chats — summarize WHAT was discussed, decided, or asked, and name the people involved. Do not merely list contact names. If audio transcripts of a meeting are present, summarize the discussion and any outcomes. A messaging app's captured text may be only a sidebar of recent-message previews rather than a full thread; treat each preview as the latest line of that conversation and summarize from it without inventing the rest.
+6. Conversations: summarize the substance. For real exchanges — Slack, email, iMessage, WhatsApp and other messaging apps (including browser-based ones like WhatsApp Web or Gmail), meetings, PR threads, assistant chats — summarize WHAT was discussed, decided, or asked, and name the people involved. Do not merely list contact names. If audio transcripts of a meeting are present, summarize the discussion and any outcomes. A messaging app's captured text may be only a sidebar of recent-message previews rather than a full thread; treat each preview as the latest line of that conversation and summarize from it without inventing the rest. Some conversations are provided as a structured "## Conversations" section sourced directly from a connector — full threads with real sender, direction, and timestamp per line. These are authoritative transcripts, not sidebar previews: summarize their substance, attribute statements to the named people, and prefer them over any on-screen capture of the same app.
 7. Entity-first but selective. Name concrete people, orgs, repos, and the titles/URLs of articles or videos — but only those that matter beyond today.
 8. Don't merge concurrent contexts. A single day may span multiple projects or clients worked on in parallel. Attribute a fact to a specific named project/client ONLY when the app, window title, or URL it appears in clearly anchors it there. If a term or feature name (e.g. "the portal") appears without a clear anchor — especially from audio, which carries no app/URL context — describe it plainly without binding it to a named project. Never guess which project or client an ambiguous reference belongs to; a vague-but-true note is better than a confident wrong attribution.
 9. Honest about sparsity. If the day was light or idle, say so in one line. Never pad or invent.
@@ -39,6 +39,16 @@ export function buildUserPrompt(digest: DayDigest): string {
     if (a.windows.length) lines.push(`- windows: ${a.windows.slice(0, 6).join(" | ")}`);
     if (a.urls.length) lines.push(`- urls: ${a.urls.slice(0, 10).join(" , ")}`);
     for (const t of a.sampleText) lines.push(`- text: ${t}`);
+  }
+  if (digest.conversations.length) {
+    lines.push("", "## Conversations");
+    for (const conv of digest.conversations) {
+      const heading = conv.isGroup ? `${conv.channel} — ${conv.chatName} (group)` : `${conv.channel} — ${conv.chatName}`;
+      lines.push(`### ${heading}`);
+      for (const m of conv.messages) {
+        lines.push(`- ${m.timestamp.slice(11, 16)} ${m.sender}: ${m.text}`);
+      }
+    }
   }
   if (digest.audio.length) {
     lines.push("", "## Audio");
