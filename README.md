@@ -56,6 +56,7 @@ Get your Screenpipe token with `screenpipe auth token`. At minimum set `SCREENPI
 
 - [Understand captured and structured message-ingestion sources](docs/messaging-connectors.md)
 - [Pair WhatsApp for persistent structured ingestion](docs/whatsapp-connector.md)
+- WhatsApp messages from the paired sidecar are folded into each daily distill automatically (set `WHATSAPP_CONNECTOR=off` to use screen capture only).
 
 ## Usage
 

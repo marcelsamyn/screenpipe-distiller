@@ -46,13 +46,18 @@ connections:
 
 | Source | Can read messages? | Headless setup? | Distiller support today? |
 | --- | --- | --- | --- |
-| Personal WhatsApp sidecar | Yes, persistent chats and messages | Yes, QR pairing | Structured archive available; not yet included in daily distill |
+| Personal WhatsApp sidecar | Yes, persistent chats and messages | Yes, QR pairing | Included in the daily distill (auto when the archive exists; disable with WHATSAPP_CONNECTOR=off) |
 | Gmail OAuth | Yes, search and full-message reads | No, desktop app required | Not yet |
 | Microsoft Teams OAuth | Yes, chats and channel messages | No, desktop app required | Not yet |
 
-These APIs are useful future ingestion sources, but the current distiller does
-not call them. Connecting one does not automatically add its messages to a
-distill run.
+The Personal WhatsApp sidecar archive is now read directly into each daily
+distill: messages for the day are folded in as structured conversations and the
+redundant on-screen WhatsApp capture is suppressed for that day. Set
+`WHATSAPP_CONNECTOR=off` to disable this and fall back to screen capture only.
+
+The Gmail and Microsoft Teams read APIs are useful future ingestion sources but
+are not yet wired into the distiller — connecting one does not automatically add
+its messages to a distill run.
 
 ## Connectors That Do Not Help Ingestion
 
