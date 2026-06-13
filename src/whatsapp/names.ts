@@ -45,6 +45,16 @@ function firstNonEmpty(...values: (string | null | undefined)[]): string | null 
   return null;
 }
 
+/**
+ * A genuine address-book name contains a letter. WhatsApp fills `Contact.name`
+ * with a (often U+2219-masked) phone number for people who are NOT saved, which
+ * must never count as a saved contact nor be preferred over a real display name.
+ */
+function letterName(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed && /\p{L}/u.test(trimmed) ? trimmed : null;
+}
+
 function distinctJids(...values: (string | null | undefined)[]): string[] {
   const out: string[] = [];
   for (const value of values) {
@@ -62,15 +72,13 @@ function distinctJids(...values: (string | null | undefined)[]): string[] {
  */
 export function contactNameUpdates(contacts: readonly BaileysContact[]): ChatNameUpdate[] {
   return contacts.flatMap((contact) => {
-    const name = firstNonEmpty(contact.name, contact.notify, contact.verifiedName);
+    const addressBookName = letterName(contact.name);
+    const name = firstNonEmpty(addressBookName, contact.notify, contact.verifiedName);
     if (!name) return [];
-    const saved = Boolean(contact.name?.trim());
-    return distinctJids(contact.id, contact.lid, contact.phoneNumber).map((jid) => ({
-      jid,
-      name,
-      isGroup: false,
-      saved,
-    }));
+    const saved = Boolean(addressBookName);
+    return distinctJids(contact.id, contact.lid, contact.phoneNumber)
+      .filter((jid) => !jid.endsWith("@g.us")) // a group is never an address-book contact
+      .map((jid) => ({ jid, name, isGroup: false, saved }));
   });
 }
 

@@ -28,6 +28,25 @@ describe("contactNameUpdates", () => {
       { jid: "31600000000@s.whatsapp.net", name: "Dana", isGroup: false, saved: true },
     ]);
   });
+
+  test("treats a masked/numeric name as not saved; falls through to notify for display", () => {
+    // WhatsApp fills `name` with a (often U+2219-masked) phone number for non-contacts.
+    expect(
+      contactNameUpdates([
+        { id: "x@s.whatsapp.net", name: "+44∙∙∙∙∙∙∙∙84", notify: "Real Notify" },
+        { id: "y@s.whatsapp.net", name: "+1 555 0100" },
+      ]),
+    ).toEqual([{ jid: "x@s.whatsapp.net", name: "Real Notify", isGroup: false, saved: false }]);
+  });
+
+  test("excludes group jids carried on a contact entry", () => {
+    expect(
+      contactNameUpdates([
+        { id: "grp@g.us", name: "Some Group" },
+        { id: "p@s.whatsapp.net", lid: "leftover@g.us", name: "Phil" },
+      ]),
+    ).toEqual([{ jid: "p@s.whatsapp.net", name: "Phil", isGroup: false, saved: true }]);
+  });
 });
 
 describe("groupNameUpdates", () => {
