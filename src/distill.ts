@@ -3,10 +3,11 @@
  * Seams are injectable for testing; defaults wire the real implementations.
  */
 import type { Config } from "./config";
-import type { CuratedDoc, DayDigest } from "./types";
+import type { Conversation, CuratedDoc, DayDigest } from "./types";
 import { ScreenpipeClient, fetchDayActivity } from "./screenpipe";
 import { curateDigest } from "./curate";
 import { uploadDocument, type DocPayload } from "./upload";
+import { loadWhatsAppConversations } from "./whatsapp/conversations";
 
 export interface DistillDeps {
   fetchDay: (dayKey: string) => Promise<DayDigest>;
@@ -16,8 +17,26 @@ export interface DistillDeps {
 
 function defaultDeps(config: Config): DistillDeps {
   const client = new ScreenpipeClient(config.SCREENPIPE_API_URL, config.SCREENPIPE_API_KEY);
+  const loadConversations =
+    config.WHATSAPP_CONNECTOR === "off"
+      ? undefined
+      : async (startIso: string, endIso: string): Promise<Conversation[]> => {
+          try {
+            return loadWhatsAppConversations({
+              archivePath: config.WHATSAPP_ARCHIVE_PATH,
+              startUnix: Math.floor(Date.parse(startIso) / 1000),
+              endUnix: Math.floor(Date.parse(endIso) / 1000),
+            });
+          } catch (error) {
+            console.warn(
+              `[whatsapp] archive read failed (${config.WHATSAPP_ARCHIVE_PATH}); continuing screen-only:`,
+              error,
+            );
+            return [];
+          }
+        };
   return {
-    fetchDay: (dayKey) => fetchDayActivity(client, dayKey, config.USER_TIMEZONE),
+    fetchDay: (dayKey) => fetchDayActivity(client, dayKey, config.USER_TIMEZONE, loadConversations),
     curate: (digest) => curateDigest(digest, config),
     upload: (p) => uploadDocument(p, config),
   };
