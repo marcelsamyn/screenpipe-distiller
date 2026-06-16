@@ -3,7 +3,7 @@
  * Aliases: screenpipe search, activity digest, /search client.
  */
 import { z } from "zod";
-import type { AppActivity, Conversation, DayDigest } from "./types";
+import type { AppActivity, DayDigest } from "./types";
 import { dayWindowUtc } from "./date-utils";
 import { classifyChannel } from "./channels";
 
@@ -188,14 +188,12 @@ export function condenseItems(
     );
   }
 
-  const conversations: Conversation[] = [];
   return {
     dayKey,
     apps,
     audio,
-    conversations,
     totalFrames,
-    isEmpty: apps.length === 0 && audio.length === 0 && conversations.length === 0,
+    isEmpty: apps.length === 0 && audio.length === 0,
   };
 }
 
@@ -218,21 +216,17 @@ export async function fetchDayActivity(
   client: ScreenpipeClient,
   dayKey: string,
   timeZone: string,
-  loadConversations?: (startIso: string, endIso: string) => Promise<Conversation[]>,
 ): Promise<DayDigest> {
   const { startIso, endIso } = dayWindowUtc(dayKey, timeZone);
-  const [ocr, audio, input, conversations] = await Promise.all([
+  const [ocr, audio, input] = await Promise.all([
     client.searchAll({ contentType: "ocr", startIso, endIso, minLength: 50 }),
     client.searchAll({ contentType: "audio", startIso, endIso }),
     client.searchAll({ contentType: "input", startIso, endIso }),
-    loadConversations?.(startIso, endIso) ?? Promise.resolve<Conversation[]>([]),
   ]);
 
-  // Suppress the a11y/OCR WhatsApp buckets only when the connector contributed,
-  // so the same thread is not counted twice. Covers "WhatsApp" and "WhatsApp (web)".
-  const suppress =
-    conversations.length > 0 ? (key: string) => key.toLowerCase().includes("whatsapp") : undefined;
-  const digest = condenseItems([...ocr, ...audio, ...input], dayKey, { suppressBucket: suppress });
-  if (conversations.length === 0) return digest;
-  return { ...digest, conversations, isEmpty: false };
+  // WhatsApp is ingested into Memory as structured transcripts by the separate
+  // whatsapp-memory service, so its low-fidelity on-screen capture is always
+  // dropped here. Covers "WhatsApp" and "WhatsApp (web)".
+  const suppress = (key: string) => key.toLowerCase().includes("whatsapp");
+  return condenseItems([...ocr, ...audio, ...input], dayKey, { suppressBucket: suppress });
 }
