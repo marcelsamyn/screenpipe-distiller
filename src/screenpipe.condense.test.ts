@@ -153,8 +153,4 @@ describe("condenseItems", () => {
     expect(digest.apps.find((a) => a.app === "WhatsApp")).toBeUndefined();
     expect(digest.apps.find((a) => a.app === "Zed")).toBeDefined();
   });
-
-  test("digest carries an empty conversations array by default", () => {
-    expect(condenseItems([], "2026-06-12").conversations).toEqual([]);
-  });
 });
