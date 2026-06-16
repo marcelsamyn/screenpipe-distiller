@@ -6,7 +6,6 @@
   "scripts": {
     "distill": "bun run src/main.ts",
     "health-check": "bun run src/health.ts",
-    "whatsapp": "bun run src/whatsapp/gateway.ts",
     "test": "bun test",
     "type-check": "bunx --bun tsc --noEmit"
   },
