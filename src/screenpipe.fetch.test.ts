@@ -34,6 +34,7 @@ describe("fetchDayActivity", () => {
     const client = new ScreenpipeClient("http://localhost:3030", "tok", ocrOnly("WhatsApp", "sidebar preview"));
     const digest = await fetchDayActivity(client, "2026-06-09", "Europe/Brussels");
     expect(digest.apps.find((a) => a.app === "WhatsApp")).toBeUndefined();
+    expect(digest.isEmpty).toBe(true); // WhatsApp was the only source; suppressing it empties the day
   });
 
   test("keeps non-WhatsApp on-screen apps", async () => {
