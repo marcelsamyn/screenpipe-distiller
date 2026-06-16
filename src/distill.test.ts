@@ -7,7 +7,7 @@ const config = { USER_TIMEZONE: "Europe/Brussels" } as Config;
 
 describe("runDistill", () => {
   test("fetch → curate → upload, returning the jobId", async () => {
-    const digest: DayDigest = { dayKey: "2026-06-09", apps: [{ app: "Ghostty", windows: [], urls: [], sampleText: [], firstSeen: "", lastSeen: "", frames: 1 }], audio: [], conversations: [], totalFrames: 1, isEmpty: false };
+    const digest: DayDigest = { dayKey: "2026-06-09", apps: [{ app: "Ghostty", windows: [], urls: [], sampleText: [], firstSeen: "", lastSeen: "", frames: 1 }], audio: [], totalFrames: 1, isEmpty: false };
     let uploadedId = "";
     const deps: DistillDeps = {
       fetchDay: async () => digest,
@@ -20,7 +20,7 @@ describe("runDistill", () => {
   });
 
   test("passes updateExisting through to the upload dep (default false)", async () => {
-    const digest: DayDigest = { dayKey: "2026-06-09", apps: [], audio: [], conversations: [], totalFrames: 0, isEmpty: true };
+    const digest: DayDigest = { dayKey: "2026-06-09", apps: [], audio: [], totalFrames: 0, isEmpty: true };
     const seen: boolean[] = [];
     const deps: DistillDeps = {
       fetchDay: async () => digest,
@@ -37,7 +37,6 @@ describe("runDistill", () => {
       dayKey: "2026-06-09",
       apps: [{ app: "Ghostty", windows: [], urls: [], sampleText: [], firstSeen: "", lastSeen: "", frames: 1 }],
       audio: [],
-      conversations: [],
       totalFrames: 1,
       isEmpty: false,
     };
