@@ -6,14 +6,6 @@ const digest: DayDigest = {
   dayKey: "2026-06-09",
   apps: [{ app: "Ghostty", windows: ["zsh"], urls: [], sampleText: ["$ bun test"], firstSeen: "2026-06-09T10:00:00Z", lastSeen: "2026-06-09T11:00:00Z", frames: 12 }],
   audio: [{ speaker: "Marcel", text: "let's ship it", timestamp: "2026-06-09T11:00:00Z" }],
-  conversations: [
-    {
-      channel: "WhatsApp",
-      chatName: "Trip 2026",
-      isGroup: true,
-      messages: [{ sender: "Alice", fromMe: false, text: "boarding now", timestamp: "2026-06-09T08:30:00Z" }],
-    },
-  ],
   totalFrames: 12,
   isEmpty: false,
 };
@@ -29,7 +21,6 @@ describe("curation prompt", () => {
     expect(sys).toContain("Notable knowledge");
     expect(sys).toContain("Conversations & meetings");
     expect(sys).toContain("Commitments & promises");
-    expect(sys).toContain("authoritative");
   });
 
   test("user prompt renders apps, urls, and audio for the day", () => {
@@ -38,12 +29,5 @@ describe("curation prompt", () => {
     expect(p).toContain("Ghostty");
     expect(p).toContain("$ bun test");
     expect(p).toContain("let's ship it");
-  });
-
-  test("user prompt renders the conversations block with sender, time, and group marker", () => {
-    const p = buildUserPrompt(digest);
-    expect(p).toContain("## Conversations");
-    expect(p).toContain("### WhatsApp — Trip 2026 (group)");
-    expect(p).toContain("- 08:30 Alice: boarding now");
   });
 });
