@@ -3,13 +3,6 @@
  * Boundary parse: call once, then trust the typed Config everywhere.
  */
 import { z } from "zod";
-import { homedir } from "node:os";
-import { join } from "node:path";
-
-/** Expand a leading `~/` to the user's home dir; concrete requirement of the default path. */
-function expandTilde(path: string): string {
-  return path.startsWith("~/") ? join(homedir(), path.slice(2)) : path;
-}
 
 const configSchema = z
   .object({
@@ -19,15 +12,6 @@ const configSchema = z
     CURATION_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4.6"),
     USER_TIMEZONE: z.string().min(1).default("Europe/Brussels"),
     USER_NAME: z.string().min(1).default("the user"),
-    // WhatsApp connector (structured message ingestion via the sidecar archive)
-    WHATSAPP_CONNECTOR: z.enum(["auto", "off"]).default("auto"),
-    WHATSAPP_ARCHIVE_PATH: z
-      .string()
-      .default("~/.screenpipe-distiller/whatsapp/messages.sqlite")
-      .transform(expandTilde),
-    // Group-message relevance: "contacts" keeps only saved address-book contacts +
-    // you (drops unknown senders in large groups); "all" keeps every group message.
-    WHATSAPP_GROUP_FILTER: z.enum(["contacts", "all"]).default("contacts"),
     // Upload target: "direct" → Assistant Memory; "petals" → Petals proxy.
     UPLOAD_MODE: z.enum(["direct", "petals"]).default("direct"),
     // direct mode (Assistant Memory)
