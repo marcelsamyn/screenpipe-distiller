@@ -24,6 +24,10 @@
 # and in-person conversations, with no system-output media noise). Override with
 # AUDIO_DEVICE="Some Device (input)", or set AUDIO_DEVICE="" to follow the system
 # default input+output. Set RECORD_AUDIO=0 for a screen-only recorder (no mic).
+#
+# Retention: deletes screen/audio media older than RETENTION_DAYS (default 30);
+# transcripts and screen text stay searchable. The screenpipe CLI keeps everything
+# unless this flag is passed. Set RETENTION_DAYS=0 to keep media forever.
 set -euo pipefail
 
 APP_DIR="$HOME/Applications/Screenpipe Recorder.app"
@@ -32,6 +36,7 @@ LABEL="com.screenpipe-distiller.record"
 LOG_DIR="$HOME/.screenpipe"
 LOG_FILE="$LOG_DIR/record.app.log"
 AUDIO_DEVICE="${AUDIO_DEVICE-MacBook Pro Microphone (input)}"
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
 SCREENPIPE="$(command -v screenpipe || true)"
 if [ -z "$SCREENPIPE" ]; then
@@ -49,11 +54,11 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$AGENTS" "$LOG_DIR"
 REQUEST_MIC="true"
 if [ "${RECORD_AUDIO:-1}" = "0" ]; then
   REQUEST_MIC="false"
-  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--disable-audio\"]"
+  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--disable-audio\", \"--retention-days\", \"$RETENTION_DAYS\"]"
 elif [ -n "$AUDIO_DEVICE" ]; then
-  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--audio-device\", \"$AUDIO_DEVICE\"]"
+  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--audio-device\", \"$AUDIO_DEVICE\", \"--retention-days\", \"$RETENTION_DAYS\"]"
 else
-  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--use-system-default-audio\"]"
+  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--use-system-default-audio\", \"--retention-days\", \"$RETENTION_DAYS\"]"
 fi
 
 # Info.plist — the app identity + the microphone usage string macOS shows on the prompt.
