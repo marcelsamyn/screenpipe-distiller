@@ -25,9 +25,12 @@
 # AUDIO_DEVICE="Some Device (input)", or set AUDIO_DEVICE="" to follow the system
 # default input+output. Set RECORD_AUDIO=0 for a screen-only recorder (no mic).
 #
-# Retention: deletes screen/audio media older than RETENTION_DAYS (default 30);
-# transcripts and screen text stay searchable. The screenpipe CLI keeps everything
-# unless this flag is passed. Set RETENTION_DAYS=0 to keep media forever.
+# Retention: deletes data older than RETENTION_DAYS (default 30). RETENTION_MODE
+# picks what goes: "all" (default) deletes media, screen text and transcripts, so
+# db.sqlite stops growing; "lean" keeps screen text and transcripts searchable;
+# "media" keeps every database row and deletes only the recordings. The screenpipe
+# CLI keeps everything unless --retention-days is passed. Set RETENTION_DAYS=0 to
+# keep everything forever.
 set -euo pipefail
 
 APP_DIR="$HOME/Applications/Screenpipe Recorder.app"
@@ -37,6 +40,7 @@ LOG_DIR="$HOME/.screenpipe"
 LOG_FILE="$LOG_DIR/record.app.log"
 AUDIO_DEVICE="${AUDIO_DEVICE-MacBook Pro Microphone (input)}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
+RETENTION_MODE="${RETENTION_MODE:-all}"
 
 SCREENPIPE="$(command -v screenpipe || true)"
 if [ -z "$SCREENPIPE" ]; then
@@ -54,11 +58,11 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$AGENTS" "$LOG_DIR"
 REQUEST_MIC="true"
 if [ "${RECORD_AUDIO:-1}" = "0" ]; then
   REQUEST_MIC="false"
-  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--disable-audio\", \"--retention-days\", \"$RETENTION_DAYS\"]"
+  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--disable-audio\", \"--retention-days\", \"$RETENTION_DAYS\", \"--retention-mode\", \"$RETENTION_MODE\"]"
 elif [ -n "$AUDIO_DEVICE" ]; then
-  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--audio-device\", \"$AUDIO_DEVICE\", \"--retention-days\", \"$RETENTION_DAYS\"]"
+  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--audio-device\", \"$AUDIO_DEVICE\", \"--retention-days\", \"$RETENTION_DAYS\", \"--retention-mode\", \"$RETENTION_MODE\"]"
 else
-  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--use-system-default-audio\", \"--retention-days\", \"$RETENTION_DAYS\"]"
+  SWIFT_ARGV="[\"$SCREENPIPE\", \"record\", \"--use-system-default-audio\", \"--retention-days\", \"$RETENTION_DAYS\", \"--retention-mode\", \"$RETENTION_MODE\"]"
 fi
 
 # Info.plist — the app identity + the microphone usage string macOS shows on the prompt.
